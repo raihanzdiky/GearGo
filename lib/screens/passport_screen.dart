@@ -50,24 +50,32 @@ class _PassportScreenState extends State<PassportScreen> {
               children: [
                 const Text('Pilih Rating Kualitas Alat:'),
                 const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(5, (index) {
-                    return IconButton(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      constraints: const BoxConstraints(),
-                      icon: Icon(
-                        index < selectedRating ? Icons.star : Icons.star_border,
-                        color: Colors.amber,
-                        size: 32,
-                      ),
-                      onPressed: () {
-                        setDialogState(() {
-                          selectedRating = index + 1;
-                        });
-                      },
-                    );
-                  }),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (index) {
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () {
+                          setDialogState(() {
+                            selectedRating = index + 1;
+                          });
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 4),
+                          child: Icon(
+                            index < selectedRating
+                                ? Icons.star
+                                : Icons.star_border,
+                            color: Colors.amber,
+                            size: 34,
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(

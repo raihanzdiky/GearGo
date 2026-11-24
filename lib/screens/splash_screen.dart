@@ -214,20 +214,22 @@ class _SplashScreenState extends State<SplashScreen>
                                     ),
                                   );
                                 },
-                                child: const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      'Mulai Petualangan',
-                                      style: TextStyle(
-                                        fontSize: 16.5,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 0.4,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: const [
+                                      Text(
+                                        'Mulai Petualangan',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
-                                    ),
-                                    SizedBox(width: 8),
-                                    Icon(Icons.arrow_forward_rounded, size: 22),
-                                  ],
+                                      SizedBox(width: 8),
+                                      Icon(Icons.arrow_forward_rounded),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),

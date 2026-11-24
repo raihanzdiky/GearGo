@@ -391,17 +391,15 @@ class _CartScreenState extends State<CartScreen> {
                         children: [
                           Row(
                             children: [
-                              const Icon(
-                                Icons.verified_user,
-                                color: Color(0xFF1B4332),
-                                size: 20,
-                              ),
+                              const Icon(Icons.verified_user,
+                                  color: Color(0xFF1B4332), size: 20),
                               const SizedBox(width: 6),
-                              Text(
-                                'Foto Asli $_guaranteeType (Live Camera Wajib) *',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
+                              Expanded(
+                                child: Text(
+                                  'Foto Asli $_guaranteeType (Live Camera Wajib) *',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13),
                                 ),
                               ),
                             ],

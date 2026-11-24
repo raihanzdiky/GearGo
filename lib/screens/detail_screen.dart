@@ -299,18 +299,16 @@ class _DetailScreenState extends State<DetailScreen> {
                   children: [
                     const Row(
                       children: [
-                        Icon(
-                          Icons.verified_user,
-                          color: Color(0xFF1B4332),
-                          size: 20,
-                        ),
+                        Icon(Icons.verified_user,
+                            color: Color(0xFF1B4332), size: 20),
                         SizedBox(width: 8),
-                        Text(
-                          'GEAR PASSPORT (Riwayat Perawatan Unit)',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1B4332),
-                            fontSize: 13,
+                        Expanded(
+                          child: Text(
+                            'GEAR PASSPORT (Riwayat Perawatan Unit)',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1B4332),
+                                fontSize: 13),
                           ),
                         ),
                       ],
@@ -527,17 +525,14 @@ class _DetailScreenState extends State<DetailScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(
-                            Icons.verified_user,
-                            color: Color(0xFF1B4332),
-                            size: 20,
-                          ),
+                          const Icon(Icons.verified_user,
+                              color: Color(0xFF1B4332), size: 20),
                           const SizedBox(width: 6),
-                          Text(
-                            'Foto Asli $_guaranteeType (Live Camera Wajib) *',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
+                          Expanded(
+                            child: Text(
+                              'Foto Asli $_guaranteeType (Live Camera Wajib) *',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 13),
                             ),
                           ),
                         ],

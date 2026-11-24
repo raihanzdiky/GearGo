@@ -92,21 +92,23 @@ class _WeightCalcScreenState extends State<WeightCalcScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Berat Badan Penyewa:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Berat Badan Penyewa:',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${_bodyWeightKg.toStringAsFixed(0)} kg (Max ${_maxSafeWeight.toStringAsFixed(1)} kg)',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1B4332)),
+                        ),
+                      ],
                     ),
-                    Text(
-                      '${_bodyWeightKg.toStringAsFixed(0)} kg (Max: ${_maxSafeWeight.toStringAsFixed(1)} kg)',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1B4332),
-                      ),
-                    ),
-                  ],
-                ),
                 Slider(
                   value: _bodyWeightKg,
                   min: 40,
