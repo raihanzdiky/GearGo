@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../database/database_helper.dart';
 import '../models/gear_item.dart';
 import '../models/booking_order.dart';
+import '../models/review_model.dart';
+import '../widgets/gear_image_widget.dart';
 import 'login_screen.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
@@ -15,75 +18,684 @@ class OwnerDashboardScreen extends StatefulWidget {
 class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   List<GearItem> _gears = [];
   List<BookingOrder> _orders = [];
+  List<ReviewModel> _reviews = [];
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadAllData();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadAllData() async {
     final gears = await DatabaseHelper.instance.getAllGears();
     final orders = await DatabaseHelper.instance.getAllOrders();
+    final reviews = await DatabaseHelper.instance.getAllReviews();
     setState(() {
       _gears = gears;
       _orders = orders;
+      _reviews = reviews;
     });
   }
 
-  void _showAddGearDialog() {
-    final nameCtrl = TextEditingController();
-    final priceCtrl = TextEditingController();
-    final weightCtrl = TextEditingController();
-    final stockCtrl = TextEditingController();
-    String category = 'Tenda';
+  // --- DIALOG MODUL 1: TAMBAH / UBAH ALAT (KATEGORI DINAMIS + VALIDASI KODE UNIK + GALERI/KAMERA) ---
+  void _showGearFormDialog({GearItem? existingGear}) {
+    final isEdit = existingGear != null;
+    final formKey = GlobalKey<FormState>();
+
+    final codeCtrl = TextEditingController(
+      text: isEdit ? existingGear.unitCode : 'GEAR-0${_gears.length + 1}',
+    );
+    final nameCtrl = TextEditingController(
+      text: isEdit ? existingGear.name : '',
+    );
+    final categoryCtrl = TextEditingController(
+      text: isEdit ? existingGear.category : '',
+    );
+    final priceCtrl = TextEditingController(
+      text: isEdit ? existingGear.pricePerDay.toStringAsFixed(0) : '',
+    );
+    final weightCtrl = TextEditingController(
+      text: isEdit ? existingGear.weightKg.toString() : '',
+    );
+    final stockCtrl = TextEditingController(
+      text: isEdit ? existingGear.stock.toString() : '',
+    );
+    final descCtrl = TextEditingController(
+      text: isEdit ? (existingGear.description ?? '') : '',
+    );
+
+    final existingCategories = _gears.map((g) => g.category).toSet().toList();
+    if (existingCategories.isEmpty) {
+      existingCategories.addAll([
+        'Tenda',
+        'Carrier',
+        'Sleeping Bag',
+        'Sepatu Gunung',
+        'Alat Masak',
+      ]);
+    }
+
+    String? pickedImagePath = isEdit ? existingGear.imageAsset : null;
+    String? duplicateCodeError;
+    final picker = ImagePicker();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          Future<void> pickProductImage(ImageSource source) async {
+            final XFile? image = await picker.pickImage(
+              source: source,
+              imageQuality: 80,
+            );
+            if (image != null) {
+              final permanentPath = await GearImageHelper.saveImagePermanently(
+                image.path,
+              );
+              setDialogState(() {
+                pickedImagePath = permanentPath;
+              });
+            }
+          }
+
+          return AlertDialog(
+            title: Text(
+              isEdit ? 'Ubah Katalog Alat' : 'Tambah Inventaris Alat',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            content: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Preview Gambar Produk (Bisa diklik untuk diperbesar)
+                    GestureDetector(
+                      onTap: pickedImagePath != null
+                          ? () => GearImageHelper.showZoomablePreview(
+                              context,
+                              imagePath: pickedImagePath,
+                              title: nameCtrl.text.isEmpty
+                                  ? 'Preview Foto Produk'
+                                  : nameCtrl.text,
+                            )
+                          : null,
+                      child: Container(
+                        height: 130,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF4EFE6),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade400),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: pickedImagePath != null
+                              ? GearImageDisplay(
+                                  imagePath: pickedImagePath,
+                                  fit: pickedImagePath!.startsWith('assets/')
+                                      ? BoxFit.contain
+                                      : BoxFit.cover,
+                                )
+                              : const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.image_outlined,
+                                      size: 40,
+                                      color: Colors.grey,
+                                    ),
+                                    Text(
+                                      'Belum ada foto produk',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Tombol Pilih Galeri atau Kamera
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () =>
+                                pickProductImage(ImageSource.gallery),
+                            icon: const Icon(Icons.photo_library, size: 18),
+                            label: const Text(
+                              'Galeri',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF1B4332),
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () =>
+                                pickProductImage(ImageSource.camera),
+                            icon: const Icon(Icons.camera_alt, size: 18),
+                            label: const Text(
+                              'Kamera',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Kode Unit Fisik (Dengan Validasi Unik)
+                    TextFormField(
+                      controller: codeCtrl,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: InputDecoration(
+                        labelText: 'Kode Unit Unik (misal: PKY-A01) *',
+                        errorText: duplicateCodeError,
+                      ),
+                      onChanged: (_) {
+                        if (duplicateCodeError != null) {
+                          setDialogState(() => duplicateCodeError = null);
+                        }
+                      },
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Kode unit wajib diisi'
+                          : null,
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Nama Alat
+                    TextFormField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Nama Alat *',
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Nama alat wajib diisi'
+                          : null,
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Kategori Dinamis
+                    Autocomplete<String>(
+                      initialValue: TextEditingValue(text: categoryCtrl.text),
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        if (textEditingValue.text.isEmpty) {
+                          return existingCategories;
+                        }
+                        return existingCategories.where(
+                          (option) => option.toLowerCase().contains(
+                            textEditingValue.text.toLowerCase(),
+                          ),
+                        );
+                      },
+                      onSelected: (String selection) {
+                        categoryCtrl.text = selection;
+                      },
+                      fieldViewBuilder:
+                          (
+                            context,
+                            textEditingController,
+                            focusNode,
+                            onFieldSubmitted,
+                          ) {
+                            textEditingController.addListener(() {
+                              categoryCtrl.text = textEditingController.text;
+                            });
+                            return TextFormField(
+                              controller: textEditingController,
+                              focusNode: focusNode,
+                              textCapitalization: TextCapitalization.words,
+                              decoration: const InputDecoration(
+                                labelText: 'Kategori (Pilih / Ketik Baru) *',
+                                hintText: 'Contoh: Penerangan, Pakaian Outdoor',
+                                suffixIcon: Icon(Icons.arrow_drop_down),
+                              ),
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Kategori wajib diisi'
+                                  : null,
+                            );
+                          },
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Harga Sewa / Hari
+                    TextFormField(
+                      controller: priceCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Harga Sewa / Hari (Rp) *',
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Harga wajib diisi';
+                        }
+                        if (double.tryParse(v.trim()) == null ||
+                            double.parse(v.trim()) <= 0) {
+                          return 'Masukkan harga valid';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Berat (kg)
+                    TextFormField(
+                      controller: weightCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Berat (kg) *',
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Berat wajib diisi';
+                        }
+                        if (double.tryParse(v.trim()) == null ||
+                            double.parse(v.trim()) <= 0) {
+                          return 'Masukkan berat valid';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Jumlah Stok
+                    TextFormField(
+                      controller: stockCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Jumlah Stok *',
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Stok wajib diisi';
+                        }
+                        if (int.tryParse(v.trim()) == null ||
+                            int.parse(v.trim()) < 0) {
+                          return 'Masukkan jumlah stok valid';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Deskripsi
+                    TextFormField(
+                      controller: descCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Deskripsi Spesifikasi',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1B4332),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  if (!formKey.currentState!.validate()) return;
+
+                  final formattedCode = codeCtrl.text.trim().toUpperCase();
+
+                  final exists = await DatabaseHelper.instance.isUnitCodeExists(
+                    formattedCode,
+                    excludeGearId: isEdit ? existingGear.id : null,
+                  );
+
+                  if (exists) {
+                    setDialogState(() {
+                      duplicateCodeError =
+                          'Kode "$formattedCode" sudah digunakan barang lain!';
+                    });
+                    return;
+                  }
+
+                  final rawCat = categoryCtrl.text.trim();
+                  final formattedCategory = rawCat
+                      .split(' ')
+                      .where((word) => word.isNotEmpty)
+                      .map(
+                        (word) =>
+                            word[0].toUpperCase() +
+                            word.substring(1).toLowerCase(),
+                      )
+                      .join(' ');
+
+                  final gearData = GearItem(
+                    id: isEdit ? existingGear.id : null,
+                    unitCode: formattedCode,
+                    name: nameCtrl.text.trim(),
+                    category: formattedCategory,
+                    pricePerDay: double.parse(priceCtrl.text.trim()),
+                    weightKg: double.parse(weightCtrl.text.trim()),
+                    stock: int.parse(stockCtrl.text.trim()),
+                    rating: isEdit ? existingGear.rating : 5.0,
+                    imageAsset:
+                        pickedImagePath ?? 'assets/images/logo_geargo.png',
+                    description: descCtrl.text.trim().isEmpty
+                        ? 'Unit terverifikasi GearGo.'
+                        : descCtrl.text.trim(),
+                    lastRentedDate: isEdit ? existingGear.lastRentedDate : '-',
+                    lastCleanedDate: isEdit
+                        ? existingGear.lastCleanedDate
+                        : DateTime.now().toString().substring(0, 10),
+                    waterproofStatus: isEdit
+                        ? existingGear.waterproofStatus
+                        : 'Lolos QC Awal',
+                    maintenanceNotes: isEdit
+                        ? existingGear.maintenanceNotes
+                        : 'Kondisi 100% siap sewa',
+                    passportPhotoPath: isEdit
+                        ? existingGear.passportPhotoPath
+                        : null,
+                  );
+
+                  if (isEdit) {
+                    await DatabaseHelper.instance.updateGear(gearData);
+                  } else {
+                    await DatabaseHelper.instance.insertGear(gearData);
+                  }
+
+                  if (!mounted) return;
+                  Navigator.pop(context);
+                  _loadAllData();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        isEdit
+                            ? 'Katalog "${gearData.name}" berhasil diperbarui!'
+                            : 'Alat "${gearData.name}" (Kategori: ${gearData.category}) ditambahkan!',
+                      ),
+                      backgroundColor: const Color(0xFF1B4332),
+                    ),
+                  );
+                },
+                child: Text(isEdit ? 'Simpan Perubahan' : 'Simpan'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // --- DIALOG MODUL 1: UPDATE GEAR PASSPORT (KHUSUS KAMERA LANGSUNG) ---
+  void _showMaintenanceDialog(GearItem gear) {
+    final nowStr = DateTime.now().toString().substring(0, 16);
+    final cleanCtrl = TextEditingController(
+      text: '$nowStr (Sterilisasi & Cuci)',
+    );
+    final waterproofCtrl = TextEditingController(
+      text: gear.waterproofStatus ?? 'Lolos Uji Air',
+    );
+    final noteCtrl = TextEditingController(text: gear.maintenanceNotes ?? '');
+    String? liveCameraPhotoPath = gear.passportPhotoPath;
+    final picker = ImagePicker();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          Future<void> captureLivePhoto() async {
+            final XFile? photo = await picker.pickImage(
+              source: ImageSource.camera,
+              imageQuality: 80,
+            );
+            if (photo != null) {
+              final permanentPath = await GearImageHelper.saveImagePermanently(
+                photo.path,
+              );
+              setDialogState(() {
+                liveCameraPhotoPath = permanentPath;
+              });
+            }
+          }
+
+          return AlertDialog(
+            title: Text('Update Gear Passport (${gear.unitCode})'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: liveCameraPhotoPath != null
+                        ? () => GearImageHelper.showZoomablePreview(
+                            context,
+                            imagePath: liveCameraPhotoPath,
+                            title: 'Gear Passport: ${gear.unitCode}',
+                          )
+                        : null,
+                    child: Container(
+                      height: 140,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF4EFE6),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF1B4332)),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: liveCameraPhotoPath != null
+                            ? GearImageDisplay(
+                                imagePath: liveCameraPhotoPath,
+                                fit: BoxFit.cover,
+                              )
+                            : const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.camera_enhance,
+                                    size: 40,
+                                    color: Color(0xFF1B4332),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'Wajib foto kondisi fisik langsung\nmenggunakan kamera saat ini',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF37021),
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: captureLivePhoto,
+                      icon: const Icon(Icons.camera_alt),
+                      label: const Text('Potret Kondisi Fisik Sekarang'),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: cleanCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Waktu Pencucian / Sterilisasi',
+                    ),
+                  ),
+                  TextField(
+                    controller: waterproofCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Hasil Tes Waterproofing',
+                    ),
+                  ),
+                  TextField(
+                    controller: noteCtrl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Catatan Kondisi Fisik Gudang',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1B4332),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  await DatabaseHelper.instance.updateGearPassport(
+                    gearId: gear.id!,
+                    lastCleanedDate: cleanCtrl.text.trim(),
+                    waterproofStatus: waterproofCtrl.text.trim(),
+                    maintenanceNotes: noteCtrl.text.trim(),
+                    passportPhotoPath: liveCameraPhotoPath,
+                  );
+                  if (!mounted) return;
+                  Navigator.pop(context);
+                  _loadAllData();
+                },
+                child: const Text('Simpan Log'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // --- DIALOG MODUL 3: FULFILLMENT & BERITA ACARA SERAH TERIMA ---
+  void _showFulfillmentDialog(BookingOrder order) {
+    final resiCtrl = TextEditingController(text: order.trackingNumber ?? '');
+    bool checkPart1 = true;
+    bool checkPart2 = true;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Serah Terima (${order.orderCode})'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Metode: ${order.deliveryMethod}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              if (order.deliveryMethod == 'Pengiriman Online')
+                TextField(
+                  controller: resiCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Input Nomor Resi / Kurir Instan',
+                  ),
+                ),
+              const SizedBox(height: 10),
+              const Text(
+                'Berita Acara Checklist Fisik Keluar:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text(
+                  'Kelengkapan komponen & pasak lengkap',
+                  style: TextStyle(fontSize: 12.5),
+                ),
+                value: checkPart1,
+                onChanged: (v) => setDialogState(() => checkPart1 = v!),
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text(
+                  'Kondisi bersih, kering & tidak robek',
+                  style: TextStyle(fontSize: 12.5),
+                ),
+                value: checkPart2,
+                onChanged: (v) => setDialogState(() => checkPart2 = v!),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1B4332),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                order.trackingNumber = resiCtrl.text.trim();
+                order.paymentVerified = 1;
+                order.status = 'Sedang Disewa';
+                await DatabaseHelper.instance.updateOrder(order);
+                if (!mounted) return;
+                Navigator.pop(context);
+                _loadAllData();
+              },
+              child: const Text('Serahkan Barang'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- DIALOG MODUL 4: QUICK INSPECTION & LEPAS JAMINAN ---
+  void _showReturnInspectionDialog(BookingOrder order) {
+    final fineCtrl = TextEditingController(text: '0');
+    final noteCtrl = TextEditingController(
+      text: 'Alat kembali lengkap & kondisi baik.',
+    );
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Tambah Peralatan Baru'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'Nama Alat'),
+        title: Text('Inspeksi Pengembalian (${order.orderCode})'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: fineCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Denda Keterlambatan / Kerusakan (Rp)',
               ),
-              DropdownButtonFormField<String>(
-                value: category,
-                items:
-                    [
-                          'Tenda',
-                          'Carrier',
-                          'Sleeping Bag',
-                          'Sepatu Gunung',
-                          'Alat Masak',
-                        ]
-                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                        .toList(),
-                onChanged: (val) => category = val!,
-                decoration: const InputDecoration(labelText: 'Kategori'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: noteCtrl,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Catatan Hasil Inspeksi Fisik',
               ),
-              TextField(
-                controller: priceCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Harga Sewa / Hari (Rp)',
-                ),
-              ),
-              TextField(
-                controller: weightCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Berat (kg)'),
-              ),
-              TextField(
-                controller: stockCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Jumlah Stok'),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -92,26 +704,65 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1B4332),
+              backgroundColor: Colors.green[700],
               foregroundColor: Colors.white,
             ),
             onPressed: () async {
-              if (nameCtrl.text.isNotEmpty && priceCtrl.text.isNotEmpty) {
-                final newGear = GearItem(
-                  name: nameCtrl.text.trim(),
-                  category: category,
-                  pricePerDay: double.tryParse(priceCtrl.text) ?? 30000,
-                  weightKg: double.tryParse(weightCtrl.text) ?? 1.0,
-                  stock: int.tryParse(stockCtrl.text) ?? 1,
-                  description: 'Ditambahkan oleh Pemilik Toko',
-                );
-                await DatabaseHelper.instance.insertGear(newGear);
-                if (!mounted) return;
-                Navigator.pop(context);
-                _loadData();
-              }
+              final fine = double.tryParse(fineCtrl.text) ?? 0.0;
+              await DatabaseHelper.instance.completeOrderAndRestoreStock(
+                order,
+                fine,
+                noteCtrl.text.trim(),
+              );
+              if (!mounted) return;
+              Navigator.pop(context);
+              _loadAllData();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Pesanan Selesai! Jaminan ${order.guaranteeType} dilepas & stok dikembalikan.',
+                  ),
+                ),
+              );
             },
-            child: const Text('Simpan'),
+            child: const Text('Selesai & Lepas Jaminan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- DIALOG MODUL 5: BALAS ULASAN CUSTOMER ---
+  void _showReplyReviewDialog(ReviewModel review) {
+    final replyCtrl = TextEditingController(text: review.ownerReply ?? '');
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Balas Ulasan Pelanggan'),
+        content: TextField(
+          controller: replyCtrl,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: 'Tulis balasan resmi toko...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await DatabaseHelper.instance.replyReview(
+                review.id!,
+                replyCtrl.text.trim(),
+              );
+              if (!mounted) return;
+              Navigator.pop(context);
+              _loadAllData();
+            },
+            child: const Text('Kirim Balasan'),
           ),
         ],
       ),
@@ -120,17 +771,30 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final activeOrders = _orders
+        .where((o) => o.status != 'Selesai' && o.kycVerified != 2)
+        .toList();
+    final returnTrackerOrders = _orders
+        .where(
+          (o) =>
+              o.status == 'Sedang Disewa' || o.status == 'Proses Pengembalian',
+        )
+        .toList();
+
+    final double totalRevenue = _orders
+        .where((o) => o.kycVerified != 2)
+        .fold(0.0, (sum, item) => sum + item.totalPrice + item.fineAmount);
+
     return DefaultTabController(
-      length: 2,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Dashboard Pemilik Toko'),
+          title: const Text('GearGo Owner Dashboard'),
           backgroundColor: const Color(0xFF1B4332),
           foregroundColor: Colors.white,
           actions: [
             IconButton(
               icon: const Icon(Icons.logout),
-              tooltip: 'Keluar Akun',
               onPressed: () {
                 DatabaseHelper.currentUser = null;
                 Navigator.pushReplacement(
@@ -141,63 +805,149 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             ),
           ],
           bottom: const TabBar(
+            isScrollable: true,
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white60,
             indicatorColor: Color(0xFFF37021),
             tabs: [
-              Tab(icon: Icon(Icons.inventory), text: 'Inventaris Alat'),
-              Tab(icon: Icon(Icons.receipt), text: 'Pesanan Masuk'),
+              Tab(icon: Icon(Icons.inventory_2), text: '1. Katalog & Passport'),
+              Tab(icon: Icon(Icons.verified_user), text: '2. Pesanan & KYC'),
+              Tab(
+                icon: Icon(Icons.assignment_return),
+                text: '3. Return & Inspeksi',
+              ),
+              Tab(icon: Icon(Icons.analytics), text: '4. Analitik & Ulasan'),
             ],
           ),
         ),
         floatingActionButton: FloatingActionButton.extended(
           backgroundColor: const Color(0xFFF37021),
           foregroundColor: Colors.white,
-          onPressed: _showAddGearDialog,
+          onPressed: () => _showGearFormDialog(),
           icon: const Icon(Icons.add),
           label: const Text('Tambah Alat'),
         ),
         body: TabBarView(
           children: [
-            // Tab 1: Daftar Inventaris Alat (CRUD)
+            // TAB 1: MODUL 1 - KATALOG (TAMBAH/UBAH/HAPUS) & GEAR PASSPORT
             ListView.builder(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
               itemCount: _gears.length,
               itemBuilder: (context, index) {
                 final gear = _gears[index];
                 return Card(
-                  child: ListTile(
-                    title: Text(
-                      gear.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      '${gear.category} • Rp ${gear.pricePerDay.toStringAsFixed(0)}/hari • Stok: ${gear.stock}',
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Row(
                       children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.add_circle,
-                            color: Colors.green,
+                        // Thumbnail Gambar Produk (Klik untuk Perbesar)
+                        GestureDetector(
+                          onTap: () => GearImageHelper.showZoomablePreview(
+                            context,
+                            imagePath: gear.imageAsset,
+                            title: '[${gear.unitCode}] ${gear.name}',
                           ),
-                          tooltip: 'Tambah Stok (+1)',
-                          onPressed: () async {
-                            await DatabaseHelper.instance.updateGearStock(
-                              gear.id!,
-                              gear.stock + 1,
-                            );
-                            _loadData();
-                          },
+                          child: Stack(
+                            children: [
+                              Container(
+                                width: 62,
+                                height: 62,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF4EFE6),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: GearImageDisplay(
+                                    imagePath: gear.imageAsset,
+                                    fit: gear.imageAsset.startsWith('assets/')
+                                        ? BoxFit.contain
+                                        : BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                right: 2,
+                                bottom: 2,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Icon(
+                                    Icons.zoom_in,
+                                    color: Colors.white,
+                                    size: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          tooltip: 'Hapus Alat',
-                          onPressed: () async {
-                            await DatabaseHelper.instance.deleteGear(gear.id!);
-                            _loadData();
-                          },
+                        const SizedBox(width: 12),
+
+                        // Detail Katalog
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '[${gear.unitCode}] ${gear.name}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              Text(
+                                '${gear.category} • ${gear.weightKg} kg • Stok: ${gear.stock}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              Text(
+                                'Rp ${gear.pricePerDay.toStringAsFixed(0)} / hari',
+                                style: const TextStyle(
+                                  color: Color(0xFFF37021),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Tombol Aksi: Edit Katalog, Update Gear Passport, Hapus
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              tooltip: 'Ubah Katalog Alat',
+                              onPressed: () =>
+                                  _showGearFormDialog(existingGear: gear),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.build_circle,
+                                color: Color(0xFF1B4332),
+                              ),
+                              tooltip: 'Update Gear Passport',
+                              onPressed: () => _showMaintenanceDialog(gear),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              tooltip: 'Hapus Alat',
+                              onPressed: () async {
+                                await DatabaseHelper.instance.deleteGear(
+                                  gear.id!,
+                                );
+                                _loadAllData();
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -206,30 +956,329 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               },
             ),
 
-            // Tab 2: Daftar Pesanan dari Customer
-            _orders.isEmpty
-                ? const Center(child: Text('Belum ada pesanan dari customer.'))
+            // TAB 2: MODUL 2 & 3 - PESANAN, VERIFIKASI FOTO KYC & FULFILLMENT
+            activeOrders.isEmpty
+                ? const Center(child: Text('Tidak ada pesanan aktif.'))
                 : ListView.builder(
                     padding: const EdgeInsets.all(12),
-                    itemCount: _orders.length,
+                    itemCount: activeOrders.length,
                     itemBuilder: (context, index) {
-                      final order = _orders[index];
+                      final order = activeOrders[index];
+                      final isRejected = order.kycVerified == 2;
+
                       return Card(
-                        child: ListTile(
-                          leading: const Icon(
-                            Icons.shopping_bag,
-                            color: Color(0xFF1B4332),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    order.orderCode,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  Chip(
+                                    backgroundColor: isRejected
+                                        ? Colors.red.shade100
+                                        : (order.kycVerified == 1
+                                              ? Colors.green.shade100
+                                              : Colors.orange.shade100),
+                                    label: Text(
+                                      order.status,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: isRejected
+                                            ? Colors.red.shade900
+                                            : Colors.black87,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                '${order.gearName} (${order.quantity}x) • ${order.renterName}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                'KYC: ${order.guaranteeType} - ${order.guaranteeNumber}',
+                              ),
+                              Text(
+                                'Bayar: ${order.paymentMethod} (${order.paymentVerified == 1 ? "Lunas" : "COD"})',
+                              ),
+                              const SizedBox(height: 10),
+
+                              // Foto Live Camera KYC dari Customer (Klik untuk Zoomable Preview)
+                              if (order.kycPhotoPath != null &&
+                                  order.kycPhotoPath!.isNotEmpty) ...[
+                                const Text(
+                                  'Foto Kartu Identitas (Ketuk untuk Perbesar):',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF1B4332),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                GestureDetector(
+                                  onTap: () => GearImageHelper.showZoomablePreview(
+                                    context,
+                                    imagePath: order.kycPhotoPath,
+                                    title:
+                                        'KYC ${order.guaranteeType}: ${order.renterName}',
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: GearImageDisplay(
+                                      imagePath: order.kycPhotoPath,
+                                      width: double.infinity,
+                                      height: 150,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+
+                              // Tombol Terima / Tolak KYC oleh Owner
+                              if (order.kycVerified == 0)
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.green[700],
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        onPressed: () async {
+                                          order.kycVerified = 1;
+                                          order.status = 'Siap Diambil/Dikirim';
+                                          await DatabaseHelper.instance
+                                              .updateOrder(order);
+                                          _loadAllData();
+                                          if (!mounted) return;
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'KYC Diterima! Pesanan siap diproses.',
+                                                  ),
+                                                  backgroundColor: Colors.green,
+                                                ),
+                                              );
+                                        },
+                                        icon: const Icon(
+                                          Icons.check_circle,
+                                          size: 18,
+                                        ),
+                                        label: const Text('Terima KYC'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: Colors.red,
+                                          side: const BorderSide(
+                                            color: Colors.red,
+                                          ),
+                                        ),
+                                        onPressed: () {
+                                          final reasonCtrl =
+                                              TextEditingController(
+                                                text: 'Foto identitas buram / tidak sesuai',
+                                              );
+                                          showDialog(
+                                            context: context,
+                                            builder: (ctx) => AlertDialog(
+                                              title: const Text(
+                                                'Tolak Verifikasi KYC',
+                                              ),
+                                              content: TextField(
+                                                controller: reasonCtrl,
+                                                decoration:
+                                                    const InputDecoration(
+                                                      labelText:
+                                                          'Alasan Penolakan',
+                                                      border:
+                                                          OutlineInputBorder(),
+                                                    ),
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(ctx),
+                                                  child: const Text('Batal'),
+                                                ),
+                                                ElevatedButton(
+                                                  style:
+                                                      ElevatedButton.styleFrom(
+                                                        backgroundColor:
+                                                            Colors.red,
+                                                        foregroundColor:
+                                                            Colors.white,
+                                                      ),
+                                                  onPressed: () async {
+                                                    await DatabaseHelper
+                                                        .instance
+                                                        .rejectOrderAndRestoreStock(
+                                                          order,
+                                                          reasonCtrl.text
+                                                              .trim(),
+                                                        );
+                                                    if (!mounted) return;
+                                                    Navigator.pop(ctx);
+                                                    _loadAllData();
+                                                    ScaffoldMessenger.of(
+                                                      context,
+                                                    ).showSnackBar(
+                                                      const SnackBar(
+                                                        content: Text(
+                                                          'Pesanan ditolak & stok alat dikembalikan.',
+                                                        ),
+                                                        backgroundColor:
+                                                            Colors.red,
+                                                      ),
+                                                    );
+                                                  },
+                                                  child: const Text(
+                                                    'Tolak Pesanan',
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                        icon: const Icon(
+                                          Icons.cancel,
+                                          size: 18,
+                                        ),
+                                        label: const Text('Tolak KYC'),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                              // Tombol Serah Terima (Muncul setelah KYC Diterima)
+                              if (order.kycVerified == 1 &&
+                                  order.status != 'Sedang Disewa')
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF1B4332),
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    onPressed: () =>
+                                        _showFulfillmentDialog(order),
+                                    icon: const Icon(Icons.local_shipping),
+                                    label: const Text(
+                                      'Serah Terima / Input Resi',
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                          title: Text('${order.gearName} (${order.quantity}x)'),
-                          subtitle: Text(
-                            'Penyewa: ${order.renterName} (${order.phoneNumber})\n'
-                            'Durasi: ${order.durationDays} Hari • Total: Rp ${order.totalPrice.toStringAsFixed(0)}',
-                          ),
-                          isThreeLine: true,
                         ),
                       );
                     },
                   ),
+
+            // TAB 3: MODUL 4 - RETURN TRACKER & QUICK INSPECTION
+            returnTrackerOrders.isEmpty
+                ? const Center(
+                    child: Text('Tidak ada barang yang sedang disewa.'),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: returnTrackerOrders.length,
+                    itemBuilder: (context, index) {
+                      final order = returnTrackerOrders[index];
+                      return Card(
+                        child: ListTile(
+                          title: Text('${order.orderCode} - ${order.gearName}'),
+                          subtitle: Text(
+                            'Penyewa: ${order.renterName}\nBatas Kembali: ${order.endDate}',
+                          ),
+                          isThreeLine: true,
+                          trailing: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFF37021),
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () => _showReturnInspectionDialog(order),
+                            child: const Text('Inspeksi'),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+
+            // TAB 4: MODUL 5 - ANALITIK & MODERASI ULASAN
+            ListView(
+              padding: const EdgeInsets.all(14),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1B4332),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Total Pendapatan Sewa & Denda',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                      Text(
+                        'Rp ${totalRevenue.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Total Transaksi: ${_orders.length} • Unit Terdaftar: ${_gears.length}',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Moderasi Ulasan & Rating Pelanggan:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 8),
+                ..._reviews.map(
+                  (rev) => Card(
+                    child: ListTile(
+                      title: Text('${rev.userName} • ⭐ ${rev.rating}'),
+                      subtitle: Text(
+                        '"${rev.comment}"\nBalasan: ${rev.ownerReply ?? "Belum dibalas"}',
+                      ),
+                      isThreeLine: true,
+                      trailing: IconButton(
+                        icon: const Icon(Icons.reply, color: Color(0xFF1B4332)),
+                        onPressed: () => _showReplyReviewDialog(rev),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),

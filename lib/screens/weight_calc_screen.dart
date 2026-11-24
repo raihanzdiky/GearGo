@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../data/cart_manager.dart';
 import '../database/database_helper.dart';
 import '../models/gear_item.dart';
+import 'cart_screen.dart';
 
 class WeightCalcScreen extends StatefulWidget {
   const WeightCalcScreen({super.key});
@@ -13,7 +15,7 @@ class WeightCalcScreen extends StatefulWidget {
 class _WeightCalcScreenState extends State<WeightCalcScreen> {
   List<GearItem> _gears = [];
   final Set<int> _selectedGearIds = {};
-  final double _maxSafeWeight = 20.0;
+  double _bodyWeightKg = 60.0;
 
   @override
   void initState() {
@@ -26,6 +28,8 @@ class _WeightCalcScreenState extends State<WeightCalcScreen> {
     setState(() => _gears = gears);
   }
 
+  double get _maxSafeWeight => _bodyWeightKg * 0.30;
+
   double get _totalWeight {
     return _gears
         .where((gear) => _selectedGearIds.contains(gear.id))
@@ -36,17 +40,18 @@ class _WeightCalcScreenState extends State<WeightCalcScreen> {
   Widget build(BuildContext context) {
     final bool isOverweight = _totalWeight > _maxSafeWeight;
     final bool isWarning =
-        _totalWeight >= 15.0 && _totalWeight <= _maxSafeWeight;
+        _totalWeight >= (_maxSafeWeight * 0.8) && !isOverweight;
 
     Color statusColor = Colors.green;
-    String statusMessage = 'Beban Aman & Ideal untuk Pendakian';
+    String statusMessage = 'Beban Aman & Ideal (≤ 30% Berat Badan)';
 
     if (isOverweight) {
       statusColor = Colors.red;
-      statusMessage = 'PERINGATAN: Beban Melebihi Batas Aman Carrier (20 kg)!';
+      statusMessage =
+          'PERINGATAN: Beban Melebihi Batas Aman (${_maxSafeWeight.toStringAsFixed(1)} kg)!';
     } else if (isWarning) {
       statusColor = Colors.orange;
-      statusMessage = 'Perhatian: Beban Mendekati Batas Aman Carrier.';
+      statusMessage = 'Perhatian: Beban Mendekati Batas Maksimal Tubuh.';
     }
 
     return Scaffold(
@@ -55,18 +60,68 @@ class _WeightCalcScreenState extends State<WeightCalcScreen> {
         backgroundColor: const Color(0xFF1B4332),
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => setState(() => _selectedGearIds.clear()),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                if (_selectedGearIds.length == _gears.length) {
+                  _selectedGearIds.clear();
+                } else {
+                  _selectedGearIds.addAll(_gears.map((e) => e.id!));
+                }
+              });
+            },
+            child: Text(
+              _selectedGearIds.length == _gears.length
+                  ? 'Reset'
+                  : 'Pilih Semua',
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
       body: Column(
         children: [
           Container(
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Berat Badan Penyewa:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      '${_bodyWeightKg.toStringAsFixed(0)} kg (Max: ${_maxSafeWeight.toStringAsFixed(1)} kg)',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1B4332),
+                      ),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: _bodyWeightKg,
+                  min: 40,
+                  max: 110,
+                  divisions: 70,
+                  activeColor: const Color(0xFFF37021),
+                  onChanged: (val) => setState(() => _bodyWeightKg = val),
+                ),
+              ],
+            ),
+          ),
+          Container(
             width: double.infinity,
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(20),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: statusColor.withOpacity(0.12),
               border: Border.all(color: statusColor, width: 2),
@@ -74,34 +129,29 @@ class _WeightCalcScreenState extends State<WeightCalcScreen> {
             ),
             child: Column(
               children: [
-                const Text(
-                  'Estimasi Total Bobot Bawaan',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
                 Text(
-                  '${_totalWeight.toStringAsFixed(1)} kg / ${_maxSafeWeight.toStringAsFixed(0)} kg',
+                  '${_totalWeight.toStringAsFixed(1)} kg / ${_maxSafeWeight.toStringAsFixed(1)} kg',
                   style: TextStyle(
-                    fontSize: 32,
+                    fontSize: 26,
                     fontWeight: FontWeight.bold,
                     color: statusColor,
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
                 LinearProgressIndicator(
                   value: (_totalWeight / _maxSafeWeight).clamp(0.0, 1.0),
                   backgroundColor: Colors.grey[300],
                   color: statusColor,
-                  minHeight: 10,
+                  minHeight: 8,
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
                 Text(
                   statusMessage,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: statusColor,
                     fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                    fontSize: 12,
                   ),
                 ),
               ],
@@ -119,7 +169,9 @@ class _WeightCalcScreenState extends State<WeightCalcScreen> {
                     gear.name,
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  subtitle: Text('Kategori: ${gear.category}'),
+                  subtitle: Text(
+                    '${gear.category} • Rp ${gear.pricePerDay.toStringAsFixed(0)}/hari',
+                  ),
                   secondary: Chip(label: Text('${gear.weightKg} kg')),
                   value: isChecked,
                   onChanged: (bool? value) {
@@ -135,6 +187,37 @@ class _WeightCalcScreenState extends State<WeightCalcScreen> {
               },
             ),
           ),
+          if (_selectedGearIds.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF37021),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    final selectedList = _gears
+                        .where((g) => _selectedGearIds.contains(g.id))
+                        .toList();
+                    CartManager.addMultipleToCart(selectedList);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CartScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.shopping_cart_checkout),
+                  label: Text(
+                    'Sewa ${_selectedGearIds.length} Item Ini (${_totalWeight.toStringAsFixed(1)} kg)',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
