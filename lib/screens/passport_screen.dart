@@ -33,40 +33,53 @@ class _PassportScreenState extends State<PassportScreen> {
   }
 
   void _showReviewDialog(BookingOrder order) {
-    double rating = 5.0;
+    int selectedRating = 5;
     final commentCtrl = TextEditingController();
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Beri Rating: ${order.gearName}'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (idx) {
-                  return IconButton(
-                    icon: Icon(
-                      idx < rating ? Icons.star : Icons.star_border,
-                      color: Colors.amber,
-                      size: 32,
-                    ),
-                    onPressed: () =>
-                        setDialogState(() => rating = (idx + 1).toDouble()),
-                  );
-                }),
-              ),
-              TextField(
-                controller: commentCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  hintText: 'Bagaimana kondisi & kebersihan alatnya?',
-                  border: OutlineInputBorder(),
+          title: Text(
+            'Beri Ulasan: ${order.gearName}',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Pilih Rating Kualitas Alat:'),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (index) {
+                    return IconButton(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      constraints: const BoxConstraints(),
+                      icon: Icon(
+                        index < selectedRating ? Icons.star : Icons.star_border,
+                        color: Colors.amber,
+                        size: 32,
+                      ),
+                      onPressed: () {
+                        setDialogState(() {
+                          selectedRating = index + 1;
+                        });
+                      },
+                    );
+                  }),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: commentCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Tulis pengalaman sewa Anda',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -79,25 +92,27 @@ class _PassportScreenState extends State<PassportScreen> {
                 foregroundColor: Colors.white,
               ),
               onPressed: () async {
-                if (commentCtrl.text.trim().isNotEmpty) {
-                  final review = ReviewModel(
-                    orderId: order.id!,
-                    gearId: order.gearId,
-                    userName: order.renterName,
-                    rating: rating,
-                    comment: commentCtrl.text.trim(),
-                    createdAt: DateTime.now().toString().substring(0, 10),
-                  );
-                  await DatabaseHelper.instance.insertReview(review, order.id!);
-                  if (!mounted) return;
-                  Navigator.pop(context);
-                  _loadOrders();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Terima kasih atas ulasan Anda!'),
-                    ),
-                  );
-                }
+                final user = DatabaseHelper.currentUser;
+                final review = ReviewModel(
+                  orderId: order.id!,
+                  gearId: order.gearId,
+                  userName: user?.fullName ?? order.renterName,
+                  rating: selectedRating.toDouble(),
+                  comment: commentCtrl.text.trim().isEmpty
+                      ? 'Alat sangat bersih dan berfungsi dengan baik!'
+                      : commentCtrl.text.trim(),
+                  createdAt: DateTime.now().toString().substring(0, 10),
+                );
+                await DatabaseHelper.instance.insertReview(review, order.id!);
+                if (!mounted) return;
+                Navigator.pop(context);
+                _loadOrders();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Terima kasih atas ulasan Anda!'),
+                    backgroundColor: Color(0xFF1B4332),
+                  ),
+                );
               },
               child: const Text('Kirim Ulasan'),
             ),

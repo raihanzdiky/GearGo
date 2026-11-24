@@ -599,45 +599,50 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text('Serah Terima (${order.orderCode})'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Metode: ${order.deliveryMethod}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              if (order.deliveryMethod == 'Pengiriman Online')
-                TextField(
-                  controller: resiCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Input Nomor Resi / Kurir Instan',
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Metode: ${order.deliveryMethod}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                if (order.deliveryMethod == 'Pengiriman Online') ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: resiCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Input Nomor Resi / Kurir Instan',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
+                ],
+                const SizedBox(height: 10),
+                const Text(
+                  'Berita Acara Checklist Fisik Keluar:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
-              const SizedBox(height: 10),
-              const Text(
-                'Berita Acara Checklist Fisik Keluar:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              ),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text(
-                  'Kelengkapan komponen & pasak lengkap',
-                  style: TextStyle(fontSize: 12.5),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Kelengkapan komponen & pasak lengkap',
+                    style: TextStyle(fontSize: 12.5),
+                  ),
+                  value: checkPart1,
+                  onChanged: (v) => setDialogState(() => checkPart1 = v!),
                 ),
-                value: checkPart1,
-                onChanged: (v) => setDialogState(() => checkPart1 = v!),
-              ),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text(
-                  'Kondisi bersih, kering & tidak robek',
-                  style: TextStyle(fontSize: 12.5),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Kondisi bersih, kering & tidak robek',
+                    style: TextStyle(fontSize: 12.5),
+                  ),
+                  value: checkPart2,
+                  onChanged: (v) => setDialogState(() => checkPart2 = v!),
                 ),
-                value: checkPart2,
-                onChanged: (v) => setDialogState(() => checkPart2 = v!),
-              ),
-            ],
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -677,25 +682,29 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Inspeksi Pengembalian (${order.orderCode})'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: fineCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Denda Keterlambatan / Kerusakan (Rp)',
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: fineCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Denda Keterlambatan / Kerusakan (Rp)',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: noteCtrl,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                labelText: 'Catatan Hasil Inspeksi Fisik',
+              const SizedBox(height: 10),
+              TextField(
+                controller: noteCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Catatan Hasil Inspeksi Fisik',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -763,6 +772,163 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               _loadAllData();
             },
             child: const Text('Kirim Balasan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- DIALOG DETAIL LENGKAP PESANAN & DATA KYC ---
+  void _showOrderDetailDialog(BookingOrder order) {
+    Widget detailRow(String label, String value) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 120,
+              child: Text(
+                label,
+                style: const TextStyle(fontSize: 12.5, color: Colors.black54),
+              ),
+            ),
+            const Text(': ', style: TextStyle(fontSize: 12.5)),
+            Expanded(
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.receipt_long, color: Color(0xFF1B4332)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Detail Pesanan ${order.orderCode}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Informasi Penyewa & Jaminan KYC',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1B4332),
+                  fontSize: 13,
+                ),
+              ),
+              const Divider(),
+              detailRow('Nama Penyewa', order.renterName),
+              detailRow('No. WhatsApp', order.phoneNumber),
+              detailRow('Jenis KYC', order.guaranteeType),
+              detailRow('Nomor Identitas', order.guaranteeNumber),
+              detailRow(
+                'Status KYC',
+                order.kycVerified == 1
+                    ? 'Terverifikasi (Diterima)'
+                    : (order.kycVerified == 2
+                          ? 'Ditolak'
+                          : 'Menunggu Verifikasi'),
+              ),
+              if (order.kycPhotoPath != null &&
+                  order.kycPhotoPath!.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () => GearImageHelper.showZoomablePreview(
+                    context,
+                    imagePath: order.kycPhotoPath,
+                    title: 'KYC ${order.guaranteeType}: ${order.renterName}',
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: GearImageDisplay(
+                      imagePath: order.kycPhotoPath,
+                      width: double.infinity,
+                      height: 150,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Center(
+                  child: Text(
+                    'Ketuk foto identitas untuk memperbesar',
+                    style: TextStyle(fontSize: 11, color: Colors.black54),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
+              const Text(
+                'Rincian Alat & Jadwal Sewa',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1B4332),
+                  fontSize: 13,
+                ),
+              ),
+              const Divider(),
+              detailRow('Nama Alat', order.gearName),
+              detailRow('Jumlah Unit', '${order.quantity} unit'),
+              detailRow('Tanggal Mulai', order.startDate),
+              detailRow('Tanggal Kembali', order.endDate),
+              detailRow('Durasi Sewa', '${order.durationDays} Hari'),
+              detailRow(
+                'Total Biaya Sewa',
+                'Rp ${order.totalPrice.toStringAsFixed(0)}',
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Pembayaran & Pengiriman',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1B4332),
+                  fontSize: 13,
+                ),
+              ),
+              const Divider(),
+              detailRow('Metode Bayar', order.paymentMethod),
+              detailRow(
+                'Status Bayar',
+                order.paymentVerified == 1 ? 'Lunas' : 'COD (Bayar di Tempat)',
+              ),
+              detailRow('Opsi Pengambilan', order.deliveryMethod),
+              detailRow(
+                'Alamat / Lokasi',
+                order.deliveryAddress ?? 'Ambil di Store',
+              ),
+              if (order.trackingNumber != null &&
+                  order.trackingNumber!.isNotEmpty)
+                detailRow('Nomor Resi', order.trackingNumber!),
+              detailRow('Status Pesanan', order.status),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tutup'),
           ),
         ],
       ),
@@ -968,225 +1134,259 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    order.orderCode,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  Chip(
-                                    backgroundColor: isRejected
-                                        ? Colors.red.shade100
-                                        : (order.kycVerified == 1
-                                              ? Colors.green.shade100
-                                              : Colors.orange.shade100),
-                                    label: Text(
-                                      order.status,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: isRejected
-                                            ? Colors.red.shade900
-                                            : Colors.black87,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                '${order.gearName} (${order.quantity}x) • ${order.renterName}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                'KYC: ${order.guaranteeType} - ${order.guaranteeNumber}',
-                              ),
-                              Text(
-                                'Bayar: ${order.paymentMethod} (${order.paymentVerified == 1 ? "Lunas" : "COD"})',
-                              ),
-                              const SizedBox(height: 10),
-
-                              // Foto Live Camera KYC dari Customer (Klik untuk Zoomable Preview)
-                              if (order.kycPhotoPath != null &&
-                                  order.kycPhotoPath!.isNotEmpty) ...[
-                                const Text(
-                                  'Foto Kartu Identitas (Ketuk untuk Perbesar):',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1B4332),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                GestureDetector(
-                                  onTap: () => GearImageHelper.showZoomablePreview(
-                                    context,
-                                    imagePath: order.kycPhotoPath,
-                                    title:
-                                        'KYC ${order.guaranteeType}: ${order.renterName}',
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: GearImageDisplay(
-                                      imagePath: order.kycPhotoPath,
-                                      width: double.infinity,
-                                      height: 150,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                              ],
-
-                              // Tombol Terima / Tolak KYC oleh Owner
-                              if (order.kycVerified == 0)
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          onTap: () => _showOrderDetailDialog(order),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                                 Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Expanded(
-                                      child: ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.green[700],
-                                          foregroundColor: Colors.white,
-                                        ),
-                                        onPressed: () async {
-                                          order.kycVerified = 1;
-                                          order.status = 'Siap Diambil/Dikirim';
-                                          await DatabaseHelper.instance
-                                              .updateOrder(order);
-                                          _loadAllData();
-                                          if (!mounted) return;
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    'KYC Diterima! Pesanan siap diproses.',
-                                                  ),
-                                                  backgroundColor: Colors.green,
-                                                ),
-                                              );
-                                        },
-                                        icon: const Icon(
-                                          Icons.check_circle,
-                                          size: 18,
-                                        ),
-                                        label: const Text('Terima KYC'),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: OutlinedButton.icon(
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: Colors.red,
-                                          side: const BorderSide(
-                                            color: Colors.red,
+                                    Row(
+                                      children: [
+                                        Text(
+                                          order.orderCode,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
                                           ),
                                         ),
-                                        onPressed: () {
-                                          final reasonCtrl =
-                                              TextEditingController(
-                                                text: 'Foto identitas buram / tidak sesuai',
-                                              );
-                                          showDialog(
-                                            context: context,
-                                            builder: (ctx) => AlertDialog(
-                                              title: const Text(
-                                                'Tolak Verifikasi KYC',
-                                              ),
-                                              content: TextField(
-                                                controller: reasonCtrl,
-                                                decoration:
-                                                    const InputDecoration(
-                                                      labelText:
-                                                          'Alasan Penolakan',
-                                                      border:
-                                                          OutlineInputBorder(),
-                                                    ),
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(ctx),
-                                                  child: const Text('Batal'),
-                                                ),
-                                                ElevatedButton(
-                                                  style:
-                                                      ElevatedButton.styleFrom(
-                                                        backgroundColor:
-                                                            Colors.red,
-                                                        foregroundColor:
-                                                            Colors.white,
-                                                      ),
-                                                  onPressed: () async {
-                                                    await DatabaseHelper
-                                                        .instance
-                                                        .rejectOrderAndRestoreStock(
-                                                          order,
-                                                          reasonCtrl.text
-                                                              .trim(),
-                                                        );
-                                                    if (!mounted) return;
-                                                    Navigator.pop(ctx);
-                                                    _loadAllData();
-                                                    ScaffoldMessenger.of(
-                                                      context,
-                                                    ).showSnackBar(
-                                                      const SnackBar(
-                                                        content: Text(
-                                                          'Pesanan ditolak & stok alat dikembalikan.',
-                                                        ),
-                                                        backgroundColor:
-                                                            Colors.red,
-                                                      ),
-                                                    );
-                                                  },
-                                                  child: const Text(
-                                                    'Tolak Pesanan',
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                        icon: const Icon(
-                                          Icons.cancel,
-                                          size: 18,
+                                        const SizedBox(width: 6),
+                                        const Icon(
+                                          Icons.info_outline,
+                                          size: 16,
+                                          color: Colors.black45,
                                         ),
-                                        label: const Text('Tolak KYC'),
+                                      ],
+                                    ),
+                                    Flexible(
+                                      child: Chip(
+                                        backgroundColor: isRejected
+                                            ? Colors.red.shade100
+                                            : (order.kycVerified == 1
+                                                  ? Colors.green.shade100
+                                                  : Colors.orange.shade100),
+                                        label: Text(
+                                          order.status,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: isRejected
+                                                ? Colors.red.shade900
+                                                : Colors.black87,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
-
-                              // Tombol Serah Terima (Muncul setelah KYC Diterima)
-                              if (order.kycVerified == 1 &&
-                                  order.status != 'Sedang Disewa')
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF1B4332),
-                                      foregroundColor: Colors.white,
-                                    ),
-                                    onPressed: () =>
-                                        _showFulfillmentDialog(order),
-                                    icon: const Icon(Icons.local_shipping),
-                                    label: const Text(
-                                      'Serah Terima / Input Resi',
+                                Text(
+                                  '${order.gearName} (${order.quantity}x) • ${order.renterName}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  'KYC: ${order.guaranteeType} - ${order.guaranteeNumber}',
+                                ),
+                                Text(
+                                  'Bayar: ${order.paymentMethod} (${order.paymentVerified == 1 ? "Lunas" : "COD"})',
+                                ),
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    'Ketuk kartu ini untuk melihat detail lengkap pesanan',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontStyle: FontStyle.italic,
+                                      color: Color(0xFF1B4332),
                                     ),
                                   ),
                                 ),
-                            ],
+                                const SizedBox(height: 10),
+
+                                // Foto Live Camera KYC dari Customer (Klik untuk Zoomable Preview)
+                                if (order.kycPhotoPath != null &&
+                                    order.kycPhotoPath!.isNotEmpty) ...[
+                                  const Text(
+                                    'Foto Kartu Identitas (Ketuk foto untuk perbesar):',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF1B4332),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  GestureDetector(
+                                    onTap: () =>
+                                        GearImageHelper.showZoomablePreview(
+                                          context,
+                                          imagePath: order.kycPhotoPath,
+                                          title:
+                                              'KYC ${order.guaranteeType}: ${order.renterName}',
+                                        ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: GearImageDisplay(
+                                        imagePath: order.kycPhotoPath,
+                                        width: double.infinity,
+                                        height: 150,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                ],
+
+                                // Tombol Terima / Tolak KYC oleh Owner
+                                if (order.kycVerified == 0)
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.green[700],
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          onPressed: () async {
+                                            order.kycVerified = 1;
+                                            order.status =
+                                                'Siap Diambil/Dikirim';
+                                            await DatabaseHelper.instance
+                                                .updateOrder(order);
+                                            _loadAllData();
+                                            if (!mounted) return;
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'KYC Diterima! Pesanan siap diproses.',
+                                                ),
+                                                backgroundColor: Colors.green,
+                                              ),
+                                            );
+                                          },
+                                          icon: const Icon(
+                                            Icons.check_circle,
+                                            size: 18,
+                                          ),
+                                          label: const Text('Terima KYC'),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: Colors.red,
+                                            side: const BorderSide(
+                                              color: Colors.red,
+                                            ),
+                                          ),
+                                          onPressed: () {
+                                            final reasonCtrl =
+                                                TextEditingController(
+                                                  text: 'Foto identitas buram / tidak sesuai',
+                                                );
+                                            showDialog(
+                                              context: context,
+                                              builder: (ctx) => AlertDialog(
+                                                title: const Text(
+                                                  'Tolak Verifikasi KYC',
+                                                ),
+                                                content: SingleChildScrollView(
+                                                  child: TextField(
+                                                    controller: reasonCtrl,
+                                                    decoration:
+                                                        const InputDecoration(
+                                                          labelText: 'Alasan Penolakan',
+                                                          border:
+                                                              OutlineInputBorder(),
+                                                        ),
+                                                  ),
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(ctx),
+                                                    child: const Text('Batal'),
+                                                  ),
+                                                  ElevatedButton(
+                                                    style:
+                                                        ElevatedButton.styleFrom(
+                                                          backgroundColor:
+                                                              Colors.red,
+                                                          foregroundColor:
+                                                              Colors.white,
+                                                        ),
+                                                    onPressed: () async {
+                                                      await DatabaseHelper
+                                                          .instance
+                                                          .rejectOrderAndRestoreStock(
+                                                            order,
+                                                            reasonCtrl.text
+                                                                .trim(),
+                                                          );
+                                                      if (!mounted) return;
+                                                      Navigator.pop(ctx);
+                                                      _loadAllData();
+                                                      ScaffoldMessenger.of(
+                                                        context,
+                                                      ).showSnackBar(
+                                                        const SnackBar(
+                                                          content: Text(
+                                                            'Pesanan ditolak & stok alat dikembalikan.',
+                                                          ),
+                                                          backgroundColor:
+                                                              Colors.red,
+                                                        ),
+                                                      );
+                                                    },
+                                                    child: const Text(
+                                                      'Tolak Pesanan',
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                          icon: const Icon(
+                                            Icons.cancel,
+                                            size: 18,
+                                          ),
+                                          label: const Text('Tolak KYC'),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+
+                                // Tombol Serah Terima (Muncul setelah KYC Diterima)
+                                if (order.kycVerified == 1 &&
+                                    order.status != 'Sedang Disewa')
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(
+                                          0xFF1B4332,
+                                        ),
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      onPressed: () =>
+                                          _showFulfillmentDialog(order),
+                                      icon: const Icon(Icons.local_shipping),
+                                      label: const Text(
+                                        'Serah Terima / Input Resi',
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       );
