@@ -194,6 +194,7 @@ class _CartScreenState extends State<CartScreen> {
                             setState(() {
                               for (var item in CartManager.items) {
                                 item.isSelected = val ?? false;
+                                CartManager.syncItem(item);
                               }
                             });
                           },
@@ -218,6 +219,7 @@ class _CartScreenState extends State<CartScreen> {
                                 onChanged: (val) {
                                   setState(() {
                                     item.isSelected = val ?? false;
+                                    CartManager.syncItem(item);
                                   });
                                 },
                               ),
@@ -250,6 +252,7 @@ class _CartScreenState extends State<CartScreen> {
                                   setState(() {
                                     if (item.quantity > 1) {
                                       item.quantity--;
+                                      CartManager.syncItem(item);
                                     } else {
                                       CartManager.removeItem(item.gear.id!);
                                     }
@@ -268,7 +271,10 @@ class _CartScreenState extends State<CartScreen> {
                                   size: 20,
                                 ),
                                 onPressed: item.quantity < item.gear.stock
-                                    ? () => setState(() => item.quantity++)
+                                    ? () => setState(() {
+                                          item.quantity++;
+                                          CartManager.syncItem(item);
+                                        })
                                     : null,
                               ),
                             ],

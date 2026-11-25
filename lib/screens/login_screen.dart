@@ -5,6 +5,7 @@ import '../widgets/toast_helper.dart';
 import 'register_screen.dart';
 import 'main_navigation.dart';
 import 'owner_dashboard_screen.dart';
+import '../data/cart_manager.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -39,6 +40,9 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           );
         } else {
+          // Customer: muat keranjang dari SQLite sebelum masuk ke halaman utama
+          await CartManager.loadForCurrentUser();
+          if (!mounted) return;
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const MainNavigation()),

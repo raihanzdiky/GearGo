@@ -15,7 +15,6 @@ class DatabaseHelper {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    // Menggunakan nama db baru v2 agar struktur tabel terbaru langsung terbentuk bersih
     _database = await _initDB('geargo_v4.db');
     return _database!;
   }
@@ -24,7 +23,23 @@ class DatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    return await openDatabase(
+      path,
+      version: 1,
+      onCreate: _createDB,
+      onOpen: (db) async {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS cart_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customerId INTEGER NOT NULL,
+            gearId INTEGER NOT NULL,
+            quantity INTEGER NOT NULL DEFAULT 1,
+            isSelected INTEGER NOT NULL DEFAULT 1,
+            UNIQUE(customerId, gearId)
+          )
+        ''');
+      },
+    );
   }
 
   Future _createDB(Database db, int version) async {
@@ -42,24 +57,24 @@ class DatabaseHelper {
 
     // 2. Tabel Gears + Gear Passport & Maintenance Log
     await db.execute('''
-  CREATE TABLE gears (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    unitCode TEXT NOT NULL,
-    name TEXT NOT NULL,
-    category TEXT NOT NULL,
-    pricePerDay REAL NOT NULL,
-    weightKg REAL NOT NULL,
-    stock INTEGER NOT NULL,
-    rating REAL NOT NULL,
-    imageAsset TEXT NOT NULL,
-    description TEXT,
-    lastRentedDate TEXT,
-    lastCleanedDate TEXT,
-    waterproofStatus TEXT,
-    maintenanceNotes TEXT,
-    passportPhotoPath TEXT
-  )
-''');
+      CREATE TABLE gears (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        unitCode TEXT NOT NULL,
+        name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        pricePerDay REAL NOT NULL,
+        weightKg REAL NOT NULL,
+        stock INTEGER NOT NULL,
+        rating REAL NOT NULL,
+        imageAsset TEXT NOT NULL,
+        description TEXT,
+        lastRentedDate TEXT,
+        lastCleanedDate TEXT,
+        waterproofStatus TEXT,
+        maintenanceNotes TEXT,
+        passportPhotoPath TEXT
+      )
+    ''');
 
     // 3. Tabel Orders (End-to-End Rental & Fulfillment)
     await db.execute('''
@@ -132,7 +147,8 @@ class DatabaseHelper {
         'stock': 5,
         'rating': 4.9,
         'imageAsset': 'assets/images/logo_geargo.png',
-        'description': 'Tenda double layer waterproof PU 3000mm, frame alloy, lengkap 12 pasak & tali guyline.',
+        'description':
+            'Tenda double layer waterproof PU 3000mm, frame alloy, lengkap 12 pasak & tali guyline.',
         'lastRentedDate': '18 Nov 2026',
         'lastCleanedDate': '20 Nov 2026 (Sterilisasi & Cuci Kering)',
         'waterproofStatus': 'Lolos Uji Semprot (100% Kedap Air)',
@@ -148,7 +164,8 @@ class DatabaseHelper {
         'stock': 8,
         'rating': 4.8,
         'imageAsset': 'assets/images/logo_geargo.png',
-        'description': 'Backsystem air-cooling ergonomis dengan rangka aluminium untuk pendakian 2-4 hari.',
+        'description':
+            'Backsystem air-cooling ergonomis dengan rangka aluminium untuk pendakian 2-4 hari.',
         'lastRentedDate': '15 Nov 2026',
         'lastCleanedDate': '17 Nov 2026 (Cuci Antibakteri)',
         'waterproofStatus': 'Raincover Baru (Tahan Hujan Deras)',
@@ -163,7 +180,8 @@ class DatabaseHelper {
         'stock': 10,
         'rating': 4.7,
         'imageAsset': 'assets/images/logo_geargo.png',
-        'description': 'Comfort rating hingga suhu 5°C, bahan luar parasut windproof, sangat ringkas.',
+        'description':
+            'Comfort rating hingga suhu 5°C, bahan luar parasut windproof, sangat ringkas.',
         'lastRentedDate': '19 Nov 2026',
         'lastCleanedDate': '21 Nov 2026 (Laundry & UV Steril)',
         'waterproofStatus': 'Water-Repellent Outer Shell',
@@ -178,7 +196,8 @@ class DatabaseHelper {
         'stock': 4,
         'rating': 4.9,
         'imageAsset': 'assets/images/logo_geargo.png',
-        'description': 'Outsole Vibram anti-slip untuk jalur berbatu dan berlumpur, perlindungan engkel maksimal.',
+        'description':
+            'Outsole Vibram anti-slip untuk jalur berbatu dan berlumpur, perlindungan engkel maksimal.',
         'lastRentedDate': '14 Nov 2026',
         'lastCleanedDate': '16 Nov 2026 (Deep Clean & Deodorizer)',
         'waterproofStatus': 'Membran Gore-Tex Aktif',
@@ -212,14 +231,15 @@ class DatabaseHelper {
       'gearId': 1,
       'userName': 'Saiful Aziz',
       'rating': 5.0,
-      'comment': 'Tenda bersih banget, wangi, dan pas hujan badai di Papandayan sama sekali tidak rembes!',
-      'ownerReply': 'Terima kasih Kak Saiful! Ditunggu petualangan berikutnya bersama GearGo.',
+      'comment':
+          'Tenda bersih banget, wangi, dan pas hujan badai di Papandayan sama sekali tidak rembes!',
+      'ownerReply':
+          'Terima kasih Kak Saiful! Ditunggu petualangan berikutnya bersama GearGo.',
       'createdAt': '19 Nov 2026',
     });
   }
 
   // --- USERS ---
-  // Tambahkan method ini di dalam class DatabaseHelper (bagian --- USERS ---)
   Future<int> updateUserProfile(UserModel user) async {
     final db = await instance.database;
     currentUser = user;
@@ -264,7 +284,6 @@ class DatabaseHelper {
     }).toList();
   }
 
-  // Mengambil daftar kategori unik yang tersedia di database (otomatis mengikuti input Owner)
   Future<List<String>> getDistinctCategories() async {
     final db = await instance.database;
     final result = await db.rawQuery(
@@ -273,7 +292,6 @@ class DatabaseHelper {
     return result.map((row) => row['category'] as String).toList();
   }
 
-  // Cek apakah kode unit sudah digunakan oleh alat lain (case-insensitive)
   Future<bool> isUnitCodeExists(String unitCode, {int? excludeGearId}) async {
     final db = await instance.database;
     final cleanCode = unitCode.trim().toUpperCase();
@@ -329,7 +347,6 @@ class DatabaseHelper {
   }
 
   // --- ORDERS ---
-  // Jika Owner menolak KYC, ubah status menjadi Ditolak dan kembalikan stok barang
   Future<void> rejectOrderAndRestoreStock(
     BookingOrder order,
     String reason,
@@ -375,7 +392,6 @@ class DatabaseHelper {
     return result.map((json) => BookingOrder.fromMap(json)).toList();
   }
 
-  // Mengambil daftar pesanan khusus milik customer yang sedang login
   Future<List<BookingOrder>> getOrdersByCustomer(int customerId) async {
     final db = await instance.database;
     final result = await db.query(
@@ -408,7 +424,6 @@ class DatabaseHelper {
     order.inspectionNotes = notes;
     await updateOrder(order);
 
-    // Kembalikan stok alat
     final gears = await db.query(
       'gears',
       where: 'id = ?',
@@ -461,6 +476,52 @@ class DatabaseHelper {
       {'ownerReply': replyText},
       where: 'id = ?',
       whereArgs: [reviewId],
+    );
+  }
+
+  // --- CART PERSISTENCE (PER CUSTOMER) ---
+  Future<List> getCartItemsByCustomer(int customerId) async {
+    final db = await instance.database;
+    return await db.rawQuery(
+      '''
+      SELECT c.quantity AS cartQuantity, c.isSelected AS cartIsSelected,
+             g.*, COALESCE(AVG(r.rating), 0.0) AS avgRating
+      FROM cart_items c
+      INNER JOIN gears g ON c.gearId = g.id
+      LEFT JOIN reviews r ON g.id = r.gearId
+      WHERE c.customerId = ?
+      GROUP BY c.id
+      ORDER BY c.id ASC
+    ''',
+      [customerId],
+    );
+  }
+
+  Future<void> upsertCartItem({
+    required int customerId,
+    required int gearId,
+    required int quantity,
+    required bool isSelected,
+  }) async {
+    final db = await instance.database;
+    await db.insert(
+      'cart_items',
+      {
+        'customerId': customerId,
+        'gearId': gearId,
+        'quantity': quantity,
+        'isSelected': isSelected ? 1 : 0,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> deleteCartItem(int customerId, int gearId) async {
+    final db = await instance.database;
+    await db.delete(
+      'cart_items',
+      where: 'customerId = ? AND gearId = ?',
+      whereArgs: [customerId, gearId],
     );
   }
 }
