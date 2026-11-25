@@ -4,6 +4,7 @@ import '../database/database_helper.dart';
 import '../models/gear_item.dart';
 import '../data/cart_manager.dart';
 import 'cart_screen.dart';
+import '../widgets/toast_helper.dart';
 
 class SmartChecklistScreen extends StatefulWidget {
   const SmartChecklistScreen({super.key});
@@ -111,35 +112,27 @@ class _SmartChecklistScreenState extends State<SmartChecklistScreen> {
         .toList();
 
     if (selectedGears.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Centang minimal 1 peralatan yang tersedia terlebih dahulu!',
-          ),
-          backgroundColor: Colors.red,
-        ),
+      ToastHelper.show(
+        context,
+        'Centang minimal 1 peralatan yang tersedia terlebih dahulu!',
+        backgroundColor: Colors.red,
       );
       return;
     }
 
     CartManager.addMultipleToCart(selectedGears);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${selectedGears.length} item berhasil masuk ke Keranjang Sewa!',
-        ),
-        backgroundColor: const Color(0xFF1B4332),
-        action: SnackBarAction(
-          label: 'Lihat Keranjang',
-          textColor: Colors.amber,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const CartScreen()),
-            );
-          },
-        ),
+    ToastHelper.show(
+      context,
+      '${selectedGears.length} item berhasil masuk ke Keranjang Sewa!',
+      action: SnackBarAction(
+        label: 'Lihat Keranjang',
+        textColor: Colors.amber,
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CartScreen()),
+          );
+        },
       ),
     );
   }

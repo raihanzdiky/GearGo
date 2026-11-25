@@ -6,6 +6,7 @@ import '../models/gear_item.dart';
 import '../models/booking_order.dart';
 import '../models/review_model.dart';
 import '../widgets/gear_image_widget.dart';
+import '../widgets/toast_helper.dart';
 import 'login_screen.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
@@ -35,6 +36,15 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       _orders = orders;
       _reviews = reviews;
     });
+  }
+
+  // Helper untuk mengambil kode induk transaksi (misal: GG-930010-1 -> GG-930010)
+  String _getBatchCode(String orderCode) {
+    final parts = orderCode.split('-');
+    if (parts.length >= 2) {
+      return '${parts[0]}-${parts[1]}';
+    }
+    return orderCode;
   }
 
   // --- DIALOG MODUL 1: TAMBAH / UBAH ALAT (KATEGORI DINAMIS + VALIDASI KODE UNIK + GALERI/KAMERA) ---
@@ -418,15 +428,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   if (!mounted) return;
                   Navigator.pop(context);
                   _loadAllData();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        isEdit
-                            ? 'Katalog "${gearData.name}" berhasil diperbarui!'
-                            : 'Alat "${gearData.name}" (Kategori: ${gearData.category}) ditambahkan!',
-                      ),
-                      backgroundColor: const Color(0xFF1B4332),
-                    ),
+                  ToastHelper.show(
+                    context,
+                    isEdit
+                        ? 'Katalog "${gearData.name}" berhasil diperbarui!'
+                        : 'Alat "${gearData.name}" (Kategori: ${gearData.category}) ditambahkan!',
                   );
                 },
                 child: Text(isEdit ? 'Simpan Perubahan' : 'Simpan'),
@@ -589,8 +595,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   // --- DIALOG MODUL 3: FULFILLMENT & BERITA ACARA SERAH TERIMA ---
-  void _showFulfillmentDialog(BookingOrder order) {
-    final resiCtrl = TextEditingController(text: order.trackingNumber ?? '');
+  void _showFulfillmentDialog(
+    String batchCode,
+    List<BookingOrder> groupOrders,
+  ) {
+    final primaryOrder = groupOrders.first;
+    final resiCtrl = TextEditingController(
+      text: primaryOrder.trackingNumber ?? '',
+    );
     bool checkPart1 = true;
     bool checkPart2 = true;
 
@@ -598,17 +610,21 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Serah Terima (${order.orderCode})'),
+          title: Text('Serah Terima ($batchCode)'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Metode: ${order.deliveryMethod}',
+                  'Metode: ${primaryOrder.deliveryMethod}',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                if (order.deliveryMethod == 'Pengiriman Online') ...[
+                Text(
+                  'Total Jenis Alat: ${groupOrders.length} item',
+                  style: const TextStyle(fontSize: 12.5, color: Colors.black54),
+                ),
+                if (primaryOrder.deliveryMethod == 'Pengiriman Online') ...[
                   const SizedBox(height: 8),
                   TextField(
                     controller: resiCtrl,
@@ -655,13 +671,19 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 foregroundColor: Colors.white,
               ),
               onPressed: () async {
-                order.trackingNumber = resiCtrl.text.trim();
-                order.paymentVerified = 1;
-                order.status = 'Sedang Disewa';
-                await DatabaseHelper.instance.updateOrder(order);
+                for (final order in groupOrders) {
+                  order.trackingNumber = resiCtrl.text.trim();
+                  order.paymentVerified = 1;
+                  order.status = 'Sedang Disewa';
+                  await DatabaseHelper.instance.updateOrder(order);
+                }
                 if (!mounted) return;
                 Navigator.pop(context);
                 _loadAllData();
+                ToastHelper.show(
+                  context,
+                  'Serah terima $batchCode (${groupOrders.length} item) berhasil!',
+                );
               },
               child: const Text('Serahkan Barang'),
             ),
@@ -726,12 +748,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               if (!mounted) return;
               Navigator.pop(context);
               _loadAllData();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Pesanan Selesai! Jaminan ${order.guaranteeType} dilepas & stok dikembalikan.',
-                  ),
-                ),
+              ToastHelper.show(
+                context,
+                'Pesanan Selesai! Jaminan ${order.guaranteeType} dilepas & stok dikembalikan.',
               );
             },
             child: const Text('Selesai & Lepas Jaminan'),
@@ -779,7 +798,16 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   // --- DIALOG DETAIL LENGKAP PESANAN & DATA KYC ---
-  void _showOrderDetailDialog(BookingOrder order) {
+  void _showOrderGroupDetailDialog(
+    String batchCode,
+    List<BookingOrder> groupOrders,
+  ) {
+    final order = groupOrders.first;
+    final totalBatchPrice = groupOrders.fold<double>(
+      0,
+      (sum, item) => sum + item.totalPrice,
+    );
+
     Widget detailRow(String label, String value) {
       return Padding(
         padding: const EdgeInsets.only(bottom: 6),
@@ -817,7 +845,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Detail Pesanan ${order.orderCode}',
+                'Detail Pesanan $batchCode',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -880,23 +908,34 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 ),
               ],
               const SizedBox(height: 14),
-              const Text(
-                'Rincian Alat & Jadwal Sewa',
-                style: TextStyle(
+              Text(
+                'Daftar Alat Disewa (${groupOrders.length} Item)',
+                style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF1B4332),
                   fontSize: 13,
                 ),
               ),
               const Divider(),
-              detailRow('Nama Alat', order.gearName),
-              detailRow('Jumlah Unit', '${order.quantity} unit'),
+              ...groupOrders.map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '• ${item.gearName} (${item.quantity}x) — Rp ${item.totalPrice.toStringAsFixed(0)}',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
               detailRow('Tanggal Mulai', order.startDate),
               detailRow('Tanggal Kembali', order.endDate),
               detailRow('Durasi Sewa', '${order.durationDays} Hari'),
               detailRow(
                 'Total Biaya Sewa',
-                'Rp ${order.totalPrice.toStringAsFixed(0)}',
+                'Rp ${totalBatchPrice.toStringAsFixed(0)}',
               ),
               const SizedBox(height: 14),
               const Text(
@@ -950,6 +989,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     final double totalRevenue = _orders
         .where((o) => o.kycVerified != 2)
         .fold(0.0, (sum, item) => sum + item.totalPrice + item.fineAmount);
+    // Kelompokkan activeOrders berdasarkan Batch Code (1x checkout = 1 kartu)
+    final Map<String, List<BookingOrder>> groupedActiveOrders = {};
+    for (final order in activeOrders) {
+      final batchCode = _getBatchCode(order.orderCode);
+      groupedActiveOrders.putIfAbsent(batchCode, () => []).add(order);
+    }
+    final activeOrderGroups = groupedActiveOrders.entries.toList();
 
     return DefaultTabController(
       length: 4,
@@ -962,6 +1008,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             IconButton(
               icon: const Icon(Icons.logout),
               onPressed: () {
+                ScaffoldMessenger.of(context).clearSnackBars();
                 DatabaseHelper.currentUser = null;
                 Navigator.pushReplacement(
                   context,
@@ -1123,20 +1170,29 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             ),
 
             // TAB 2: MODUL 2 & 3 - PESANAN, VERIFIKASI FOTO KYC & FULFILLMENT
-            activeOrders.isEmpty
+            activeOrderGroups.isEmpty
                 ? const Center(child: Text('Tidak ada pesanan aktif.'))
                 : ListView.builder(
                     padding: const EdgeInsets.all(12),
-                    itemCount: activeOrders.length,
+                    itemCount: activeOrderGroups.length,
                     itemBuilder: (context, index) {
-                      final order = activeOrders[index];
+                      final batchCode = activeOrderGroups[index].key;
+                      final groupOrders = activeOrderGroups[index].value;
+                      final order = groupOrders.first;
                       final isRejected = order.kycVerified == 2;
+                      final totalBatchPrice = groupOrders.fold<double>(
+                        0,
+                        (sum, item) => sum + item.totalPrice,
+                      );
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         clipBehavior: Clip.antiAlias,
                         child: InkWell(
-                          onTap: () => _showOrderDetailDialog(order),
+                          onTap: () => _showOrderGroupDetailDialog(
+                            batchCode,
+                            groupOrders,
+                          ),
                           child: Padding(
                             padding: const EdgeInsets.all(12),
                             child: Column(
@@ -1149,18 +1205,34 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                     Row(
                                       children: [
                                         Text(
-                                          order.orderCode,
+                                          batchCode,
                                           style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 15,
                                           ),
                                         ),
-                                        const SizedBox(width: 6),
-                                        const Icon(
-                                          Icons.info_outline,
-                                          size: 16,
-                                          color: Colors.black45,
-                                        ),
+                                        if (groupOrders.length > 1) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF1B4332),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              '${groupOrders.length} Item',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ],
                                     ),
                                     Flexible(
@@ -1186,11 +1258,20 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                   ],
                                 ),
                                 Text(
-                                  '${order.gearName} (${order.quantity}x) • ${order.renterName}',
+                                  'Penyewa: ${order.renterName} • Total: Rp ${totalBatchPrice.toStringAsFixed(0)}',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
+                                const SizedBox(height: 4),
+                                // Daftar seluruh alat dalam 1 checkout
+                                ...groupOrders.map(
+                                  (item) => Text(
+                                    '• ${item.gearName} (${item.quantity}x)',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
                                 Text(
                                   'KYC: ${order.guaranteeType} - ${order.guaranteeNumber}',
                                 ),
@@ -1210,7 +1291,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                 ),
                                 const SizedBox(height: 10),
 
-                                // Foto Live Camera KYC dari Customer (Klik untuk Zoomable Preview)
+                                // Foto Live Camera KYC
                                 if (order.kycPhotoPath != null &&
                                     order.kycPhotoPath!.isNotEmpty) ...[
                                   const Text(
@@ -1243,7 +1324,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                   const SizedBox(height: 10),
                                 ],
 
-                                // Tombol Terima / Tolak KYC oleh Owner
+                                // Tombol Terima / Tolak KYC (1x untuk seluruh item di grup)
                                 if (order.kycVerified == 0)
                                   Row(
                                     children: [
@@ -1254,22 +1335,19 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                             foregroundColor: Colors.white,
                                           ),
                                           onPressed: () async {
-                                            order.kycVerified = 1;
-                                            order.status =
-                                                'Siap Diambil/Dikirim';
-                                            await DatabaseHelper.instance
-                                                .updateOrder(order);
+                                            for (final item in groupOrders) {
+                                              item.kycVerified = 1;
+                                              item.status =
+                                                  'Siap Diambil/Dikirim';
+                                              await DatabaseHelper.instance
+                                                  .updateOrder(item);
+                                            }
                                             _loadAllData();
                                             if (!mounted) return;
-                                            ScaffoldMessenger.of(
+                                            ToastHelper.show(
                                               context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'KYC Diterima! Pesanan siap diproses.',
-                                                ),
-                                                backgroundColor: Colors.green,
-                                              ),
+                                              'KYC $batchCode (${groupOrders.length} item) Diterima!',
+                                              backgroundColor: Colors.green,
                                             );
                                           },
                                           icon: const Icon(
@@ -1296,8 +1374,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                             showDialog(
                                               context: context,
                                               builder: (ctx) => AlertDialog(
-                                                title: const Text(
-                                                  'Tolak Verifikasi KYC',
+                                                title: Text(
+                                                  'Tolak KYC ($batchCode)',
                                                 ),
                                                 content: SingleChildScrollView(
                                                   child: TextField(
@@ -1325,26 +1403,24 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                                               Colors.white,
                                                         ),
                                                     onPressed: () async {
-                                                      await DatabaseHelper
-                                                          .instance
-                                                          .rejectOrderAndRestoreStock(
-                                                            order,
-                                                            reasonCtrl.text
-                                                                .trim(),
-                                                          );
+                                                      for (final item
+                                                          in groupOrders) {
+                                                        await DatabaseHelper
+                                                            .instance
+                                                            .rejectOrderAndRestoreStock(
+                                                              item,
+                                                              reasonCtrl.text
+                                                                  .trim(),
+                                                            );
+                                                      }
                                                       if (!mounted) return;
                                                       Navigator.pop(ctx);
                                                       _loadAllData();
-                                                      ScaffoldMessenger.of(
+                                                      ToastHelper.show(
                                                         context,
-                                                      ).showSnackBar(
-                                                        const SnackBar(
-                                                          content: Text(
-                                                            'Pesanan ditolak & stok alat dikembalikan.',
-                                                          ),
-                                                          backgroundColor:
-                                                              Colors.red,
-                                                        ),
+                                                        'Pesanan $batchCode ditolak & stok dikembalikan.',
+                                                        backgroundColor:
+                                                            Colors.red,
                                                       );
                                                     },
                                                     child: const Text(
@@ -1365,9 +1441,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                     ],
                                   ),
 
-                                // Tombol Serah Terima (Muncul setelah KYC Diterima)
+                                // FIX NO. 6: Tombol Serah Terima HANYA muncul saat status 'Siap Diambil/Dikirim'
                                 if (order.kycVerified == 1 &&
-                                    order.status != 'Sedang Disewa')
+                                    order.status == 'Siap Diambil/Dikirim')
                                   SizedBox(
                                     width: double.infinity,
                                     child: ElevatedButton.icon(
@@ -1377,8 +1453,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                         ),
                                         foregroundColor: Colors.white,
                                       ),
-                                      onPressed: () =>
-                                          _showFulfillmentDialog(order),
+                                      onPressed: () => _showFulfillmentDialog(
+                                        batchCode,
+                                        groupOrders,
+                                      ),
                                       icon: const Icon(Icons.local_shipping),
                                       label: const Text(
                                         'Serah Terima / Input Resi',
@@ -1403,20 +1481,83 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     itemCount: returnTrackerOrders.length,
                     itemBuilder: (context, index) {
                       final order = returnTrackerOrders[index];
+                      final isReturning = order.status == 'Proses Pengembalian';
+
                       return Card(
-                        child: ListTile(
-                          title: Text('${order.orderCode} - ${order.gearName}'),
-                          subtitle: Text(
-                            'Penyewa: ${order.renterName}\nBatas Kembali: ${order.endDate}',
-                          ),
-                          isThreeLine: true,
-                          trailing: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFF37021),
-                              foregroundColor: Colors.white,
-                            ),
-                            onPressed: () => _showReturnInspectionDialog(order),
-                            child: const Text('Inspeksi'),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '${order.orderCode} - ${order.gearName}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isReturning
+                                          ? Colors.orange.shade100
+                                          : Colors.blue.shade100,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      order.status,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: isReturning
+                                            ? Colors.orange.shade900
+                                            : Colors.blue.shade900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text('Penyewa: ${order.renterName}'),
+                              Text('Batas Kembali: ${order.endDate}'),
+                              const SizedBox(height: 10),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: isReturning
+                                        ? const Color(0xFFF37021)
+                                        : Colors.grey.shade400,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  onPressed: isReturning
+                                      ? () => _showReturnInspectionDialog(order)
+                                      : null,
+                                  icon: Icon(
+                                    isReturning
+                                        ? Icons.fact_check
+                                        : Icons.hourglass_bottom,
+                                    size: 18,
+                                  ),
+                                  label: Text(
+                                    isReturning
+                                        ? 'Inspeksi & Selesai (Lepas Jaminan)'
+                                        : 'Menunggu Penyewa Ajukan Pengembalian',
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       );

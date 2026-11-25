@@ -5,6 +5,7 @@ import '../models/booking_order.dart';
 import '../models/review_model.dart';
 import 'login_screen.dart';
 import '../data/cart_manager.dart';
+import '../widgets/toast_helper.dart';
 
 class PassportScreen extends StatefulWidget {
   const PassportScreen({super.key});
@@ -64,7 +65,9 @@ class _PassportScreenState extends State<PassportScreen> {
                         },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 4),
+                            horizontal: 4,
+                            vertical: 4,
+                          ),
                           child: Icon(
                             index < selectedRating
                                 ? Icons.star
@@ -115,12 +118,7 @@ class _PassportScreenState extends State<PassportScreen> {
                 if (!mounted) return;
                 Navigator.pop(context);
                 _loadOrders();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Terima kasih atas ulasan Anda!'),
-                    backgroundColor: Color(0xFF1B4332),
-                  ),
-                );
+                ToastHelper.show(context, 'Terima kasih atas ulasan Anda!');
               },
               child: const Text('Kirim Ulasan'),
             ),
@@ -144,6 +142,7 @@ class _PassportScreenState extends State<PassportScreen> {
             icon: const Icon(Icons.logout),
             tooltip: 'Keluar / Ganti Akun',
             onPressed: () {
+              ScaffoldMessenger.of(context).clearSnackBars();
               CartManager.items.clear();
               DatabaseHelper.currentUser = null;
               Navigator.pushReplacement(

@@ -250,8 +250,18 @@ class DatabaseHelper {
   // --- GEARS & GEAR PASSPORT ---
   Future<List<GearItem>> getAllGears() async {
     final db = await instance.database;
-    final result = await db.query('gears', orderBy: 'id DESC');
-    return result.map((json) => GearItem.fromMap(json)).toList();
+    final result = await db.rawQuery('''
+      SELECT g.*, COALESCE(AVG(r.rating), 0.0) AS avgRating
+      FROM gears g
+      LEFT JOIN reviews r ON g.id = r.gearId
+      GROUP BY g.id
+      ORDER BY g.id DESC
+    ''');
+    return result.map((json) {
+      final map = Map<String, dynamic>.from(json);
+      map['rating'] = (map['avgRating'] as num?)?.toDouble() ?? 0.0;
+      return GearItem.fromMap(map);
+    }).toList();
   }
 
   // Mengambil daftar kategori unik yang tersedia di database (otomatis mengikuti input Owner)

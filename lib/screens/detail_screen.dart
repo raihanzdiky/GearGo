@@ -7,6 +7,7 @@ import '../models/review_model.dart';
 import '../database/database_helper.dart';
 import '../data/cart_manager.dart';
 import '../widgets/gear_image_widget.dart';
+import '../widgets/toast_helper.dart';
 import 'cart_screen.dart';
 
 class DetailScreen extends StatefulWidget {
@@ -92,22 +93,18 @@ class _DetailScreenState extends State<DetailScreen> {
 
   void _addToCartOnly() {
     CartManager.addToCart(widget.gear, quantity: _quantity);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${widget.gear.name} (${_quantity}x) ditambahkan ke Keranjang!',
-        ),
-        backgroundColor: const Color(0xFF1B4332),
-        action: SnackBarAction(
-          label: 'Buka Keranjang',
-          textColor: Colors.amber,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const CartScreen()),
-            );
-          },
-        ),
+    ToastHelper.show(
+      context,
+      '${widget.gear.name} (${_quantity}x) ditambahkan ke Keranjang!',
+      action: SnackBarAction(
+        label: 'Buka Keranjang',
+        textColor: Colors.amber,
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CartScreen()),
+          );
+        },
       ),
     );
   }
@@ -117,13 +114,10 @@ class _DetailScreenState extends State<DetailScreen> {
 
     // Validasi wajib foto kamera langsung KYC
     if (_kycLivePhotoPath == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Wajib memotret kartu identitas (KTP/KTM/SIM) secara langsung dengan kamera!',
-          ),
-          backgroundColor: Colors.red,
-        ),
+      ToastHelper.show(
+        context,
+        'Wajib memotret kartu identitas (KTP/KTM/SIM) secara langsung dengan kamera!',
+        backgroundColor: Colors.red,
       );
       return;
     }
@@ -159,13 +153,9 @@ class _DetailScreenState extends State<DetailScreen> {
     await DatabaseHelper.instance.insertOrder(newOrder, widget.gear.stock);
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Pesanan $orderCode berhasil dibuat! Menunggu verifikasi KYC Owner.',
-        ),
-        backgroundColor: const Color(0xFF1B4332),
-      ),
+    ToastHelper.show(
+      context,
+      'Pesanan $orderCode berhasil dibuat! Menunggu verifikasi KYC Owner.',
     );
     Navigator.pop(context);
   }
@@ -299,16 +289,20 @@ class _DetailScreenState extends State<DetailScreen> {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.verified_user,
-                            color: Color(0xFF1B4332), size: 20),
+                        Icon(
+                          Icons.verified_user,
+                          color: Color(0xFF1B4332),
+                          size: 20,
+                        ),
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'GEAR PASSPORT (Riwayat Perawatan Unit)',
                             style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1B4332),
-                                fontSize: 13),
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1B4332),
+                              fontSize: 13,
+                            ),
                           ),
                         ),
                       ],
@@ -525,14 +519,19 @@ class _DetailScreenState extends State<DetailScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.verified_user,
-                              color: Color(0xFF1B4332), size: 20),
+                          const Icon(
+                            Icons.verified_user,
+                            color: Color(0xFF1B4332),
+                            size: 20,
+                          ),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               'Foto Asli $_guaranteeType (Live Camera Wajib) *',
                               style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 13),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         ],

@@ -222,6 +222,7 @@ class _AccountScreenState extends State<AccountScreen> {
                     side: const BorderSide(color: Colors.red),
                   ),
                   onPressed: () {
+                    ScaffoldMessenger.of(context).clearSnackBars();
                     CartManager.items.clear();
                     DatabaseHelper.currentUser = null;
                     Navigator.pushReplacement(

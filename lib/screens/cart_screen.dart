@@ -5,6 +5,7 @@ import '../data/cart_manager.dart';
 import '../database/database_helper.dart';
 import '../models/booking_order.dart';
 import '../widgets/gear_image_widget.dart';
+import '../widgets/toast_helper.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -88,11 +89,10 @@ class _CartScreenState extends State<CartScreen> {
   Future<void> _checkoutSelected() async {
     final selected = CartManager.selectedItems;
     if (selected.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pilih minimal 1 peralatan untuk disewa!'),
-          backgroundColor: Colors.red,
-        ),
+      ToastHelper.show(
+        context,
+        'Pilih minimal 1 peralatan untuk disewa!',
+        backgroundColor: Colors.red,
       );
       return;
     }
@@ -101,13 +101,10 @@ class _CartScreenState extends State<CartScreen> {
 
     // Validasi wajib foto kamera langsung KYC
     if (_kycLivePhotoPath == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Wajib memotret kartu identitas (KTP/KTM/SIM) secara langsung dengan kamera!',
-          ),
-          backgroundColor: Colors.red,
-        ),
+      ToastHelper.show(
+        context,
+        'Wajib memotret kartu identitas (KTP/KTM/SIM) secara langsung dengan kamera!',
+        backgroundColor: Colors.red,
       );
       return;
     }
@@ -148,13 +145,9 @@ class _CartScreenState extends State<CartScreen> {
     CartManager.removeSelectedItems();
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Berhasil menyewa ${selected.length} item! Menunggu verifikasi KYC oleh Owner.',
-        ),
-        backgroundColor: const Color(0xFF1B4332),
-      ),
+    ToastHelper.show(
+      context,
+      'Berhasil menyewa ${selected.length} item! Menunggu verifikasi KYC oleh Owner.',
     );
     Navigator.pop(context);
   }
@@ -391,15 +384,19 @@ class _CartScreenState extends State<CartScreen> {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.verified_user,
-                                  color: Color(0xFF1B4332), size: 20),
+                              const Icon(
+                                Icons.verified_user,
+                                color: Color(0xFF1B4332),
+                                size: 20,
+                              ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   'Foto Asli $_guaranteeType (Live Camera Wajib) *',
                                   style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ),
                             ],

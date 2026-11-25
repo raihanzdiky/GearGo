@@ -299,16 +299,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                             ),
                                           ),
                                           const Spacer(),
-                                          const Icon(
+                                          Icon(
                                             Icons.star,
-                                            color: Colors.amber,
+                                            color: gear.rating > 0
+                                                ? Colors.amber
+                                                : Colors.grey[400],
                                             size: 15,
                                           ),
                                           Text(
-                                            ' ${gear.rating}',
-                                            style: const TextStyle(
+                                            gear.rating > 0
+                                                ? ' ${gear.rating.toStringAsFixed(1)}'
+                                                : ' Baru',
+                                            style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 12,
+                                              color: gear.rating > 0
+                                                  ? Colors.black87
+                                                  : Colors.grey[600],
                                             ),
                                           ),
                                         ],

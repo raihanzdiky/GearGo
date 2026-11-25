@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../database/database_helper.dart';
+import '../widgets/toast_helper.dart';
 import 'register_screen.dart';
 import 'main_navigation.dart';
 import 'owner_dashboard_screen.dart';
@@ -44,11 +45,10 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Email atau Password salah!'),
-            backgroundColor: Colors.red,
-          ),
+        ToastHelper.show(
+          context,
+          'Email atau Password salah!',
+          backgroundColor: Colors.red,
         );
       }
     }

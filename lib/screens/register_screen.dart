@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
 import '../models/user_model.dart';
 import '../widgets/geargo_logo.dart';
+import '../widgets/toast_helper.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -35,20 +36,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         await DatabaseHelper.instance.registerUser(newUser);
 
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pendaftaran berhasil! Silakan masuk.'),
-            backgroundColor: Color(0xFF1B4332),
-          ),
-        );
+        ToastHelper.show(context, 'Pendaftaran berhasil! Silakan masuk.');
         Navigator.pop(context); // Kembali ke halaman Login
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Email sudah terdaftar, gunakan email lain!'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ToastHelper.show(context, 'Email sudah terdaftar, gunakan email lain!');
       }
     }
   }
