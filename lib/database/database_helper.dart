@@ -38,6 +38,13 @@ class DatabaseHelper {
             UNIQUE(customerId, gearId)
           )
         ''');
+
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS session (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            userId INTEGER NOT NULL
+          )
+        ''');
       },
     );
   }
@@ -147,8 +154,7 @@ class DatabaseHelper {
         'stock': 5,
         'rating': 4.9,
         'imageAsset': 'assets/images/logo_geargo.png',
-        'description':
-            'Tenda double layer waterproof PU 3000mm, frame alloy, lengkap 12 pasak & tali guyline.',
+        'description': 'Tenda double layer waterproof PU 3000mm, frame alloy, lengkap 12 pasak & tali guyline.',
         'lastRentedDate': '18 Nov 2026',
         'lastCleanedDate': '20 Nov 2026 (Sterilisasi & Cuci Kering)',
         'waterproofStatus': 'Lolos Uji Semprot (100% Kedap Air)',
@@ -164,8 +170,7 @@ class DatabaseHelper {
         'stock': 8,
         'rating': 4.8,
         'imageAsset': 'assets/images/logo_geargo.png',
-        'description':
-            'Backsystem air-cooling ergonomis dengan rangka aluminium untuk pendakian 2-4 hari.',
+        'description': 'Backsystem air-cooling ergonomis dengan rangka aluminium untuk pendakian 2-4 hari.',
         'lastRentedDate': '15 Nov 2026',
         'lastCleanedDate': '17 Nov 2026 (Cuci Antibakteri)',
         'waterproofStatus': 'Raincover Baru (Tahan Hujan Deras)',
@@ -180,8 +185,7 @@ class DatabaseHelper {
         'stock': 10,
         'rating': 4.7,
         'imageAsset': 'assets/images/logo_geargo.png',
-        'description':
-            'Comfort rating hingga suhu 5°C, bahan luar parasut windproof, sangat ringkas.',
+        'description': 'Comfort rating hingga suhu 5°C, bahan luar parasut windproof, sangat ringkas.',
         'lastRentedDate': '19 Nov 2026',
         'lastCleanedDate': '21 Nov 2026 (Laundry & UV Steril)',
         'waterproofStatus': 'Water-Repellent Outer Shell',
@@ -196,8 +200,7 @@ class DatabaseHelper {
         'stock': 4,
         'rating': 4.9,
         'imageAsset': 'assets/images/logo_geargo.png',
-        'description':
-            'Outsole Vibram anti-slip untuk jalur berbatu dan berlumpur, perlindungan engkel maksimal.',
+        'description': 'Outsole Vibram anti-slip untuk jalur berbatu dan berlumpur, perlindungan engkel maksimal.',
         'lastRentedDate': '14 Nov 2026',
         'lastCleanedDate': '16 Nov 2026 (Deep Clean & Deodorizer)',
         'waterproofStatus': 'Membran Gore-Tex Aktif',
@@ -231,12 +234,42 @@ class DatabaseHelper {
       'gearId': 1,
       'userName': 'Saiful Aziz',
       'rating': 5.0,
-      'comment':
-          'Tenda bersih banget, wangi, dan pas hujan badai di Papandayan sama sekali tidak rembes!',
-      'ownerReply':
-          'Terima kasih Kak Saiful! Ditunggu petualangan berikutnya bersama GearGo.',
+      'comment': 'Tenda bersih banget, wangi, dan pas hujan badai di Papandayan sama sekali tidak rembes!',
+      'ownerReply': 'Terima kasih Kak Saiful! Ditunggu petualangan berikutnya bersama GearGo.',
       'createdAt': '19 Nov 2026',
     });
+  }
+
+  // --- SESSION PERSISTENCE (AUTO-LOGIN) ---
+  Future<void> saveSession(int userId) async {
+    final db = await instance.database;
+    // Menggunakan REPLACE agar baris dengan id = 1 selalu diperbarui
+    await db.insert('session', {
+      'id': 1,
+      'userId': userId,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<UserModel?> getActiveSessionUser() async {
+    final db = await instance.database;
+    final sessionResult = await db.query('session', where: 'id = 1');
+    if (sessionResult.isNotEmpty) {
+      final userId = sessionResult.first['userId'] as int;
+      final userResult = await db.query(
+        'users',
+        where: 'id = ?',
+        whereArgs: [userId],
+      );
+      if (userResult.isNotEmpty) {
+        return UserModel.fromMap(userResult.first);
+      }
+    }
+    return null;
+  }
+
+  Future<void> clearSession() async {
+    final db = await instance.database;
+    await db.delete('session');
   }
 
   // --- USERS ---
@@ -504,16 +537,12 @@ class DatabaseHelper {
     required bool isSelected,
   }) async {
     final db = await instance.database;
-    await db.insert(
-      'cart_items',
-      {
-        'customerId': customerId,
-        'gearId': gearId,
-        'quantity': quantity,
-        'isSelected': isSelected ? 1 : 0,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('cart_items', {
+      'customerId': customerId,
+      'gearId': gearId,
+      'quantity': quantity,
+      'isSelected': isSelected ? 1 : 0,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<void> deleteCartItem(int customerId, int gearId) async {
