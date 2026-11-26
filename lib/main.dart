@@ -1,9 +1,23 @@
 import 'package:flutter/material.dart';
 
+import 'database/database_helper.dart';
+import 'data/cart_manager.dart';
+import 'models/user_model.dart';
 import 'screens/splash_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Cek apakah ada sesi login yang tersimpan sebelumnya
+  final UserModel? savedUser = await DatabaseHelper.instance
+      .getActiveSessionUser();
+  if (savedUser != null) {
+    DatabaseHelper.currentUser = savedUser;
+    if (savedUser.role == 'customer') {
+      await CartManager.loadForCurrentUser();
+    }
+  }
+
   runApp(const GearGoApp());
 }
 
