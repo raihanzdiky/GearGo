@@ -31,6 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (user != null) {
         DatabaseHelper.currentUser = user;
+        await DatabaseHelper.instance.saveSession(user.id!);
         // Routing otomatis berdasarkan aktor (Owner atau Customer)
         if (user.role == 'owner') {
           Navigator.pushReplacement(

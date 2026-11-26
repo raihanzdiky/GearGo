@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../database/database_helper.dart';
+import 'main_navigation.dart';
+import 'owner_dashboard_screen.dart';
+import 'login_screen.dart';
 import '../widgets/geargo_logo.dart';
 import 'login_screen.dart';
 
@@ -196,14 +200,24 @@ class _SplashScreenState extends State<SplashScreen>
                                   ),
                                 ),
                                 onPressed: () {
+                                  final user = DatabaseHelper.currentUser;
+                                  Widget targetScreen;
+
+                                  if (user == null) {
+                                    targetScreen = const LoginScreen();
+                                  } else if (user.role == 'owner') {
+                                    targetScreen = const OwnerDashboardScreen();
+                                  } else {
+                                    targetScreen = const MainNavigation();
+                                  }
+
                                   Navigator.pushReplacement(
                                     context,
                                     PageRouteBuilder(
                                       transitionDuration: const Duration(
                                         milliseconds: 450,
                                       ),
-                                      pageBuilder: (_, __, ___) =>
-                                          const LoginScreen(),
+                                      pageBuilder: (_, __, ___) => targetScreen,
                                       transitionsBuilder:
                                           (_, animation, __, child) {
                                             return FadeTransition(

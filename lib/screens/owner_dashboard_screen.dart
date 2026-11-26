@@ -1007,7 +1007,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           actions: [
             IconButton(
               icon: const Icon(Icons.logout),
-              onPressed: () {
+              onPressed: () async {
+                await DatabaseHelper.instance.clearSession();
+                if (!context.mounted) return;
+                DatabaseHelper.currentUser = null;
                 ScaffoldMessenger.of(context).clearSnackBars();
                 DatabaseHelper.currentUser = null;
                 Navigator.pushReplacement(

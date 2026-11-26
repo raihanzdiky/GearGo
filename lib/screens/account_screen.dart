@@ -221,7 +221,9 @@ class _AccountScreenState extends State<AccountScreen> {
                     foregroundColor: Colors.red,
                     side: const BorderSide(color: Colors.red),
                   ),
-                  onPressed: () {
+                  onPressed: () async {
+                    await DatabaseHelper.instance.clearSession();
+                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).clearSnackBars();
                     CartManager.items.clear();
                     DatabaseHelper.currentUser = null;
