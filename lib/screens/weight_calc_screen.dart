@@ -60,27 +60,59 @@ class _WeightCalcScreenState extends State<WeightCalcScreen> {
         backgroundColor: const Color(0xFF1B4332),
         foregroundColor: Colors.white,
         actions: [
-          TextButton(
-            onPressed: () {
-              setState(() {
-                if (_selectedGearIds.length == _gears.length) {
-                  _selectedGearIds.clear();
-                } else {
-                  _selectedGearIds.addAll(_gears.map((e) => e.id!));
-                }
-              });
-            },
-            child: Text(
-              _selectedGearIds.length == _gears.length
-                  ? 'Reset'
-                  : 'Pilih Semua',
-              style: const TextStyle(color: Colors.white),
+          // Ikon Keranjang di Kanan Atas dengan Badge Total Item Aktif
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.shopping_cart_outlined, size: 26),
+                  onPressed: () async {
+                    // Buka CartScreen dan perbarui state saat kembali
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CartScreen(),
+                      ),
+                    );
+                    setState(() {});
+                  },
+                  tooltip: 'Lihat Keranjang',
+                ),
+                if (CartManager.totalBadgeCount > 0)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF37021),
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Text(
+                        '${CartManager.totalBadgeCount}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
       ),
       body: Column(
         children: [
+          // Slider Berat Badan
           Container(
             margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -92,23 +124,24 @@ class _WeightCalcScreenState extends State<WeightCalcScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'Berat Badan Penyewa:',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${_bodyWeightKg.toStringAsFixed(0)} kg (Max ${_maxSafeWeight.toStringAsFixed(1)} kg)',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1B4332)),
-                        ),
-                      ],
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Berat Badan Penyewa:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${_bodyWeightKg.toStringAsFixed(0)} kg (Max ${_maxSafeWeight.toStringAsFixed(1)} kg)',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1B4332),
+                      ),
+                    ),
+                  ],
+                ),
                 Slider(
                   value: _bodyWeightKg,
                   min: 40,
@@ -120,6 +153,8 @@ class _WeightCalcScreenState extends State<WeightCalcScreen> {
               ],
             ),
           ),
+
+          // Indikator Status Beban
           Container(
             width: double.infinity,
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -159,6 +194,53 @@ class _WeightCalcScreenState extends State<WeightCalcScreen> {
               ],
             ),
           ),
+
+          // Tombol "Pilih Semua / Reset" ditaruh di atas daftar item
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Daftar Perlengkapan:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1B4332),
+                    fontSize: 14,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      if (_selectedGearIds.length == _gears.length) {
+                        _selectedGearIds.clear();
+                      } else {
+                        _selectedGearIds.addAll(_gears.map((e) => e.id!));
+                      }
+                    });
+                  },
+                  icon: Icon(
+                    _selectedGearIds.length == _gears.length
+                        ? Icons.deselect
+                        : Icons.select_all,
+                    size: 18,
+                    color: const Color(0xFF1B4332),
+                  ),
+                  label: Text(
+                    _selectedGearIds.length == _gears.length
+                        ? 'Batalkan Pilihan'
+                        : 'Pilih Semua',
+                    style: const TextStyle(
+                      color: Color(0xFF1B4332),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // ListView Daftar Gear
           Expanded(
             child: ListView.builder(
               itemCount: _gears.length,
@@ -189,33 +271,53 @@ class _WeightCalcScreenState extends State<WeightCalcScreen> {
               },
             ),
           ),
+
+          // Tombol Tambah ke Keranjang di Bawah
           if (_selectedGearIds.isNotEmpty)
-            Padding(
+            Container(
               padding: const EdgeInsets.all(14),
+              color: Colors.white,
               child: SizedBox(
                 width: double.infinity,
-                height: 48,
+                height: 50,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF37021),
+                    backgroundColor: const Color(0xFF1B4332),
                     foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   onPressed: () {
                     final selectedList = _gears
                         .where((g) => _selectedGearIds.contains(g.id))
                         .toList();
+
+                    // Memasukkan ke CartManager & SQLite secara persisten
                     CartManager.addMultipleToCart(selectedList);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const CartScreen(),
+
+                    setState(() {
+                      _selectedGearIds
+                          .clear(); // Reset pilihan setelah masuk keranjang
+                    });
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Berhasil menambahkan ${selectedList.length} item ke keranjang!',
+                        ),
+                        backgroundColor: const Color(0xFF1B4332),
+                        duration: const Duration(seconds: 2),
                       ),
                     );
                   },
-                  icon: const Icon(Icons.shopping_cart_checkout),
+                  icon: const Icon(Icons.add_shopping_cart),
                   label: Text(
-                    'Sewa ${_selectedGearIds.length} Item Ini (${_totalWeight.toStringAsFixed(1)} kg)',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    'Masukkan ${_selectedGearIds.length} Item ke Keranjang (${_totalWeight.toStringAsFixed(1)} kg)',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
               ),
