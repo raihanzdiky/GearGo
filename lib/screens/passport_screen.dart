@@ -137,21 +137,6 @@ class _PassportScreenState extends State<PassportScreen> {
         title: const Text('Pesanan Saya & Gear Passport'),
         backgroundColor: const Color(0xFF1B4332),
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Keluar / Ganti Akun',
-            onPressed: () {
-              ScaffoldMessenger.of(context).clearSnackBars();
-              CartManager.items.clear();
-              DatabaseHelper.currentUser = null;
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-              );
-            },
-          ),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
